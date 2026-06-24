@@ -1,0 +1,27 @@
+{
+  "hooks": {
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "async": true,
+            "command": "jq -c '{event:\"subagent_start\",agent_type:.agent_type,agent_id:.agent_id}' >> \"$CLAUDE_PROJECT_DIR/tool-calls.jsonl\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "async": true,
+            "command": "jq -c '{event:\"skill_used\",skill:.tool_input.skill}' >> \"$CLAUDE_PROJECT_DIR/tool-calls.jsonl\""
+          }
+        ]
+      }
+    ]
+  }
+}
