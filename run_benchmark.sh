@@ -49,6 +49,17 @@ When implementing features in the Codex plugin, use these project skills:
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
+# Resolves the Claude Code project dir for a given scenario working directory.
+# Claude Code slugifies the real path: replace / and _ with -.
+get_project_dir() {
+  local dir="$1"
+  local real_dir
+  real_dir=$(cd "$dir" 2>/dev/null && pwd -P) || real_dir="$dir"
+  local slug="${real_dir//\//-}"
+  slug="${slug//_/-}"
+  echo "$HOME/.claude/projects/$slug"
+}
+
 # Parse args before defining log() so $E2E is available
 SKIP_INIT=false
 E2E=false        # --e2e: run S1 only with haiku to validate pipeline
@@ -69,13 +80,34 @@ log() {
 
 die() { log "ERROR: $*"; exit 1; }
 
-# Returns the max weighted token total for a session UUID from tokens.jsonl.
-# Parent session entries in tokens.jsonl include all subagent token costs merged in.
-get_session_weighted_tokens() {
-  local session_id="$1"
-  jq -rs --arg sid "$session_id" \
-    '[.[] | select(.session_id == $sid) | .tokens] | if length > 0 then max else 0 end' \
-    ~/.claude/usage-tracker/tokens.jsonl 2>/dev/null || echo 0
+# Sums weighted tokens (input+output+cache_write+cache_read) across all new session JSONLs
+# created after $marker within the scenario's own project dir (parent + subagent children).
+# Scoped to prevent contamination from other Claude Code sessions running concurrently.
+compute_total_weighted() {
+  local scenario_dir="$1"
+  local marker="$2"
+
+  local project_dir
+  project_dir=$(get_project_dir "$scenario_dir")
+
+  [[ -d "$project_dir" ]] || { echo 0; return; }
+
+  local total=0 f t
+  while IFS= read -r f; do
+    t=$(jq -rs '
+      [.[] | select(.type == "assistant"
+                 and .message != null
+                 and .message.usage != null)] |
+      map(.message.usage |
+        (.input_tokens                // 0) +
+        (.output_tokens               // 0) +
+        (.cache_creation_input_tokens // 0) +
+        (.cache_read_input_tokens     // 0)) |
+      add // 0
+    ' "$f" 2>/dev/null) || t=0
+    total=$(( total + t ))
+  done < <(find "$project_dir" -name "*.jsonl" -newer "$marker" 2>/dev/null)
+  echo "$total"
 }
 
 # Parses main session JSONL for per-type token breakdown (excludes subagent sessions).
@@ -96,15 +128,21 @@ extract_session_breakdown() {
   ' "$session_file"
 }
 
-# Finds the PARENT session JSONL created after a marker file.
+# Finds the PARENT session JSONL created after a marker file within the scenario's project dir.
 # For subagent scenarios, multiple sessions exist; the parent contains the original prompt.
+# Scoped to the scenario's own project dir to prevent contamination from other sessions.
 find_parent_session() {
   local marker="$1"
+  local scenario_dir="$2"
   local prompt_fingerprint="hascodexratelimitreset.today"  # Distinctive phrase from FEATURE_PROMPT
 
+  local project_dir
+  project_dir=$(get_project_dir "$scenario_dir")
+
+  [[ -d "$project_dir" ]] || { echo ""; return; }
+
   local new_sessions
-  new_sessions=$(find ~/.claude/projects/ -name "*.jsonl" -newer "$marker" 2>/dev/null \
-    | grep -v 'tokens\|ratelimit\|api-cache') || true
+  new_sessions=$(find "$project_dir" -name "*.jsonl" -newer "$marker" 2>/dev/null) || true
 
   [[ -z "$new_sessions" ]] && { echo ""; return; }
 
@@ -278,19 +316,17 @@ and coding conventions observed in the source. Write it to CLAUDE.md.' \
 
     sleep 3  # Allow JSONL flush to disk
 
-    # Find the new session file
+    # Find the new session file (scoped to this scenario's project dir)
     local session_file
-    session_file=$(find_parent_session "$TEMP_BASE/marker_s$i") || true
+    session_file=$(find_parent_session "$TEMP_BASE/marker_s$i" "$dir") || true
 
     local breakdown
-    local session_id=""
     local total_weighted=0
 
     if [[ -n "$session_file" ]]; then
-      session_id=$(basename "$session_file" .jsonl)
-      log "Session: $session_id"
+      log "Session: $(basename "$session_file" .jsonl)"
       breakdown=$(extract_session_breakdown "$session_file")
-      total_weighted=$(get_session_weighted_tokens "$session_id")
+      total_weighted=$(compute_total_weighted "$dir" "$TEMP_BASE/marker_s$i")
     else
       log "WARNING: No session file found for $label"
       breakdown='{"input":0,"output":0,"cache_write":0,"cache_read":0}'
