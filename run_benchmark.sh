@@ -340,7 +340,7 @@ and coding conventions observed in the source. Write it to CLAUDE.md.' \
 
     local result
     result=$(echo "$breakdown" | jq \
-      --arg label    "$label" \
+      --arg lbl      "$label" \
       --arg claude   "${SCENARIO_CLAUDE[$i]}" \
       --arg subag    "${SCENARIO_SUBAG[$i]}" \
       --arg skills   "${SCENARIO_SKILLS[$i]}" \
@@ -348,7 +348,7 @@ and coding conventions observed in the source. Write it to CLAUDE.md.' \
       --argjson tw   "$total_weighted" \
       --argjson sub_tok "$subagent_tokens" \
       '{
-        scenario:            $label,
+        scenario:            $lbl,
         has_claude_md:       ($claude == "true"),
         has_subagents:       ($subag  == "true"),
         has_skills:          ($skills == "true"),
