@@ -6,6 +6,15 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Load shared functions from run_benchmark.sh (main guard ensures no execution).
+# `|| true` guards against set -e treating the main guard's false branch as failure:
+#   [[ "${BASH_SOURCE[0]}" == "$0" ]] && main "$@"
+# evaluates to exit 1 when sourced (left side is false), which set -e would abort on.
+# Syntax errors in run_benchmark.sh still propagate — bash exits before || true is reached.
+# shellcheck source=run_benchmark.sh
+source "$SCRIPT_DIR/run_benchmark.sh" || true
+
 PASS=0; FAIL=0
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
@@ -37,12 +46,13 @@ echo "=== Suite 1: Hook jq expressions ==="
 # 1a. SubagentStart — should log subagent_start with agent_type and agent_id
 SUBAGENT_INPUT='{"agent_type":"claude","agent_id":"agent-abc123","session_id":"sess-x","cwd":"/tmp/s3","hook_event_name":"SubagentStart"}'
 SUBAGENT_CMD=$(jq -r '.hooks.SubagentStart[0].hooks[0].command' "$SCRIPT_DIR/hook_settings.json")
-# Replace $CLAUDE_PROJECT_DIR with a temp path for testing
+# Note: async:true in hook_settings.json governs Claude Code's dispatch mechanism.
+# When invoked via eval in bash (as here), the command runs synchronously — no sleep needed.
+# If hook_settings.json renames $CLAUDE_PROJECT_DIR, this substitution silently fails.
 SUBAGENT_CMD="${SUBAGENT_CMD//\$CLAUDE_PROJECT_DIR/$TMP}"
 SUBAGENT_LOG="$TMP/tool-calls.jsonl"
 
 echo "$SUBAGENT_INPUT" | eval "$SUBAGENT_CMD" 2>/dev/null
-sleep 0.2  # async hook
 RESULT=$(jq -r '.event' "$SUBAGENT_LOG" 2>/dev/null || echo "")
 assert_eq "SubagentStart hook writes event=subagent_start" "subagent_start" "$RESULT"
 RESULT=$(jq -r '.agent_type' "$SUBAGENT_LOG" 2>/dev/null || echo "")
@@ -54,10 +64,10 @@ assert_eq "SubagentStart hook captures agent_id" "agent-abc123" "$RESULT"
 rm -f "$SUBAGENT_LOG"
 SKILL_INPUT='{"tool_name":"Skill","tool_input":{"skill":"explore-codex"},"tool_response":"...content...","session_id":"sess-x","cwd":"/tmp/s4","hook_event_name":"PostToolUse"}'
 SKILL_CMD=$(jq -r '.hooks.PostToolUse[0].hooks[0].command' "$SCRIPT_DIR/hook_settings.json")
+# If hook_settings.json renames $CLAUDE_PROJECT_DIR, this substitution silently fails.
 SKILL_CMD="${SKILL_CMD//\$CLAUDE_PROJECT_DIR/$TMP}"
 
 echo "$SKILL_INPUT" | eval "$SKILL_CMD" 2>/dev/null
-sleep 0.2
 RESULT=$(jq -r '.event' "$SUBAGENT_LOG" 2>/dev/null || echo "")
 assert_eq "PostToolUse(Skill) hook writes event=skill_used" "skill_used" "$RESULT"
 RESULT=$(jq -r '.skill' "$SUBAGENT_LOG" 2>/dev/null || echo "")
@@ -67,7 +77,6 @@ assert_eq "PostToolUse(Skill) hook captures skill name" "explore-codex" "$RESULT
 rm -f "$SUBAGENT_LOG"
 echo "$SUBAGENT_INPUT" | eval "$SUBAGENT_CMD" 2>/dev/null
 echo "$SKILL_INPUT"    | eval "$SKILL_CMD"    2>/dev/null
-sleep 0.2
 COUNT=$(jq -s 'length' "$SUBAGENT_LOG" 2>/dev/null || echo 0)
 assert_eq "Both event types written to same log file" "2" "$COUNT"
 
@@ -84,18 +93,7 @@ cat > "$MOCK_SESSION" << 'EOF'
 {"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"done"}],"usage":{"input_tokens":800,"output_tokens":150,"cache_creation_input_tokens":0,"cache_read_input_tokens":400}}}
 EOF
 
-# Inline the extraction jq from run_benchmark.sh
-BREAKDOWN=$(jq -rs '
-  [.[] | select(.type == "assistant"
-             and .message != null
-             and .message.usage != null)] |
-  {
-    input:       (map(.message.usage.input_tokens                // 0) | add // 0),
-    output:      (map(.message.usage.output_tokens               // 0) | add // 0),
-    cache_write: (map(.message.usage.cache_creation_input_tokens // 0) | add // 0),
-    cache_read:  (map(.message.usage.cache_read_input_tokens     // 0) | add // 0)
-  }
-' "$MOCK_SESSION")
+BREAKDOWN=$(extract_session_breakdown "$MOCK_SESSION")
 
 assert_eq "input_tokens summed correctly"  "1800" "$(echo "$BREAKDOWN" | jq '.input')"
 assert_eq "output_tokens summed correctly"  "350" "$(echo "$BREAKDOWN" | jq '.output')"
@@ -105,13 +103,7 @@ assert_eq "cache_read summed correctly"     "700" "$(echo "$BREAKDOWN" | jq '.ca
 # Edge case: no assistant messages → all zeros
 EMPTY_SESSION="$TMP/empty_session.jsonl"
 echo '{"type":"user","message":{"content":"hi"}}' > "$EMPTY_SESSION"
-BREAKDOWN=$(jq -rs '
-  [.[] | select(.type == "assistant" and .message != null and .message.usage != null)] |
-  { input: (map(.message.usage.input_tokens // 0) | add // 0),
-    output: (map(.message.usage.output_tokens // 0) | add // 0),
-    cache_write: (map(.message.usage.cache_creation_input_tokens // 0) | add // 0),
-    cache_read: (map(.message.usage.cache_read_input_tokens // 0) | add // 0) }
-' "$EMPTY_SESSION")
+BREAKDOWN=$(extract_session_breakdown "$EMPTY_SESSION")
 assert_eq "Empty session → all zeros" '{"input":0,"output":0,"cache_write":0,"cache_read":0}' \
   "$(echo "$BREAKDOWN" | jq -c .)"
 
@@ -131,44 +123,15 @@ cat > "$DUMMY_REPO/CLAUDE.md" << 'EOF'
 npm test
 EOF
 
+BASE_CLAUDE_MD="$DUMMY_REPO/CLAUDE.md"
+
 # Simulate Phase 1: clone 5 times
 for i in 1 2 3 4 5; do
   git clone "$DUMMY_REPO" "$TMP/s$i" -q 2>/dev/null
 done
 
-# Simulate Phase 2: setup scenarios (copy logic from run_benchmark.sh)
-BASE_CLAUDE_MD="$DUMMY_REPO/CLAUDE.md"
-
-# S1: no CLAUDE.md
-rm -f "$TMP/s1/CLAUDE.md"
-
-# S2: CLAUDE.md only
-cp "$BASE_CLAUDE_MD" "$TMP/s2/CLAUDE.md"
-
-# S3: CLAUDE.md + subagent section
-cp "$BASE_CLAUDE_MD" "$TMP/s3/CLAUDE.md"
-echo -e "\n## Development Workflow\nSpawn an Agent subagent to explore." >> "$TMP/s3/CLAUDE.md"
-
-# S4: CLAUDE.md + skills
-cp "$BASE_CLAUDE_MD" "$TMP/s4/CLAUDE.md"
-echo -e "\n## Available Skills\n- \`/explore-codex\`" >> "$TMP/s4/CLAUDE.md"
-mkdir -p "$TMP/s4/.claude/commands"
-cp "$SCRIPT_DIR/commands/explore-codex.md" "$TMP/s4/.claude/commands/"
-cp "$SCRIPT_DIR/commands/test-codex.md"    "$TMP/s4/.claude/commands/"
-
-# S5: CLAUDE.md + subagents + skills
-cp "$BASE_CLAUDE_MD" "$TMP/s5/CLAUDE.md"
-echo -e "\n## Development Workflow\nSpawn an Agent." >> "$TMP/s5/CLAUDE.md"
-echo -e "\n## Available Skills\n- \`/explore-codex\`" >> "$TMP/s5/CLAUDE.md"
-mkdir -p "$TMP/s5/.claude/commands"
-cp "$SCRIPT_DIR/commands/explore-codex.md" "$TMP/s5/.claude/commands/"
-cp "$SCRIPT_DIR/commands/test-codex.md"    "$TMP/s5/.claude/commands/"
-
-# Hook installed in all scenarios
-for i in 1 2 3 4 5; do
-  mkdir -p "$TMP/s$i/.claude"
-  cp "$SCRIPT_DIR/hook_settings.json" "$TMP/s$i/.claude/settings.json"
-done
+# Phase 2: use production configure_scenario_dirs (from sourced run_benchmark.sh)
+configure_scenario_dirs "$BASE_CLAUDE_MD" "$TMP" 2>/dev/null
 
 # Assertions
 assert_file_not_exists "S1 has no CLAUDE.md"         "$TMP/s1/CLAUDE.md"

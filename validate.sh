@@ -21,7 +21,7 @@ pass() { echo "  ✓ $*"; (( PASS++ )) || true; }
 fail() { echo "  ✗ $*"; (( FAIL++ )) || true; }
 warn() { echo "  ~ $*"; (( WARN++ )) || true; }
 
-# Read tool-calls.jsonl written by the PostToolUse hook (async, fires on success only).
+# Read tool-calls.jsonl written by SubagentStart and PostToolUse(Skill) hooks.
 # Entry exists = tool executed successfully. No JSONL parsing gymnastics needed.
 
 count_task_calls() {
@@ -49,19 +49,16 @@ plugin_modified() {
 # Run vitest and return pass/fail
 run_tests() {
   local scenario_dir="$1"
-  # Install deps quietly if node_modules missing
-  [[ -d "$scenario_dir/node_modules" ]] || \
-    (cd "$scenario_dir" && npm install --silent 2>/dev/null) || true
 
   local output
   output=$(cd "$scenario_dir" && npx vitest run plugins/codex/plugin.test.js 2>&1) || true
 
-  if echo "$output" | grep -qE "✓|passed|Tests:.*[1-9][0-9]* passed"; then
+  if echo "$output" | grep -qE "passed|Tests:.*[1-9][0-9]* passed"; then
     echo "pass"
   else
     echo "fail"
     # Print last few lines for debugging
-    echo "$output" | tail -8 | sed 's/^/      /'
+    echo "$output" | tail -8 | sed 's/^/      /' >&2
   fi
 }
 
@@ -76,7 +73,6 @@ validate_scenario() {
   local expect_subagents="$3"
   local expect_skills="$4"
   local scenario_dir="$TEMP_BASE/s$i"
-  local marker="$TEMP_BASE/marker_s$i"
 
   echo ""
   echo "── $label ──────────────────────────────────────"
@@ -99,10 +95,9 @@ validate_scenario() {
   fi
 
   # ── 2. Hook log exists ───────────────────────────────
-  # tool-calls.jsonl is written by the PostToolUse hook (async).
+  # tool-calls.jsonl is written by the SubagentStart / PostToolUse(Skill) hook (async).
   # If it doesn't exist, it means either the hook didn't fire (no matching tool calls)
   # OR the scenario didn't run. We check token data to distinguish.
-  local hook_log="$scenario_dir/tool-calls.jsonl"
 
   # ── 3. Token data sanity ─────────────────────────────
   local tokens
@@ -115,22 +110,22 @@ validate_scenario() {
   fi
 
   # ── 4. Subagent behavior ─────────────────────────────
-  # PostToolUse(Task) hook writes to tool-calls.jsonl on success.
-  # Entry exists = Task tool fired and completed successfully.
+  # SubagentStart hook writes to tool-calls.jsonl when an agent starts.
+  # Entry exists = agent was spawned.
   local task_calls
   task_calls=$(count_task_calls "$scenario_dir")
   if [[ "$expect_subagents" == "true" ]]; then
     [[ "$task_calls" -gt 0 ]] \
-      && pass "Subagents confirmed — $task_calls Task call(s) logged by hook" \
-      || fail "Expected subagents but hook logged 0 Task calls — CLAUDE.md workflow section may not have worked"
+      && pass "Subagents confirmed — $task_calls subagent(s) logged by hook" \
+      || fail "Expected subagents but hook logged 0 subagents — CLAUDE.md workflow section may not have worked"
   else
     [[ "$task_calls" -eq 0 ]] \
       && pass "No subagents (as expected)" \
-      || fail "Hook logged unexpected Task calls: $task_calls — scenario contaminated"
+      || fail "Hook logged unexpected subagents: $task_calls — scenario contaminated"
   fi
 
   # ── 5. Skill invocation behavior ─────────────────────
-  # PostToolUse(Read) hook writes to tool-calls.jsonl when path contains .claude/commands.
+  # PostToolUse(Skill) hook writes to tool-calls.jsonl when a skill is invoked.
   # Entry exists = skill file was successfully read.
   local skill_reads
   skill_reads=$(count_skill_reads "$scenario_dir")
@@ -167,6 +162,17 @@ echo "=== Benchmark Validation ==="
 echo "Temp dir : $TEMP_BASE"
 echo "Results  : $RESULTS_JSON"
 
+# Install npm deps once in s1, copy node_modules to s2-s5 to avoid 5x install
+if [[ ! -d "$TEMP_BASE/s1/node_modules" ]]; then
+  echo "Installing npm deps..."
+  (cd "$TEMP_BASE/s1" && npm install --silent 2>/dev/null) || true
+fi
+for i in 2 3 4 5; do
+  if [[ ! -d "$TEMP_BASE/s$i/node_modules" ]]; then
+    cp -r "$TEMP_BASE/s1/node_modules" "$TEMP_BASE/s$i/"
+  fi
+done
+
 #              i  label              subagents  skills
 validate_scenario 1 "S1_baseline"    false      false
 validate_scenario 2 "S2_claude_md"   false      false
@@ -179,3 +185,4 @@ echo "────────────────────────�
 echo "Summary: ${PASS} passed  ${FAIL} failed  ${WARN} warnings"
 [[ "$FAIL" -eq 0 ]] && echo "Status: VALID — token numbers are trustworthy" \
                      || echo "Status: INVALID — re-run affected scenarios before drawing conclusions"
+[[ "$FAIL" -eq 0 ]]
