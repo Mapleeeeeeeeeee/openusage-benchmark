@@ -3,7 +3,6 @@
 <head>
 <meta charset="utf-8">
 <title>OpenUsage Harness Benchmark 報告</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; }
 body { font-family: -apple-system, system-ui, "Noto Sans TC", sans-serif; background: #fafafa; color: #1a1a1a; padding: 2rem; max-width: 960px; margin: 0 auto; }
@@ -18,7 +17,7 @@ h1 { font-size: 22px; font-weight: 500; margin-bottom: 8px; }
 .chart-title { font-size: 15px; font-weight: 500; margin-bottom: 12px; }
 .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 12px; font-size: 12px; color: #888; }
 .legend span { display: flex; align-items: center; gap: 4px; }
-.legend .dot { width: 10px; height: 10px; border-radius: 2px; }
+.legend .dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
 th { text-align: right; font-weight: 500; padding: 8px 10px; border-bottom: 2px solid #e5e5e5; color: #888; font-size: 11px; }
 th:first-child { text-align: left; }
@@ -29,12 +28,21 @@ td:first-child { text-align: left; font-weight: 500; }
 .winner td { background: #f0fdf4; }
 .note { font-size: 12px; color: #999; margin-top: 16px; line-height: 1.6; }
 .scenario-desc { font-size: 13px; color: #666; margin-bottom: 20px; line-height: 1.7; }
+.bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.bar-label { font-size: 12px; width: 100px; text-align: right; color: #666; flex-shrink: 0; }
+.bar-track { flex: 1; height: 22px; background: #f5f5f5; border-radius: 4px; position: relative; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 6px; font-size: 11px; color: #fff; white-space: nowrap; }
+.bar-group { display: flex; gap: 2px; margin-bottom: 2px; }
+.bar-seg { height: 22px; border-radius: 3px; }
+.prompt-toggle { font-size: 12px; padding: 3px 10px; border: 1px solid #ddd; border-radius: 6px; background: #fff; cursor: pointer; }
+.prompt-toggle.active { font-weight: 500; background: #f0f0f0; }
+.tag { display: inline-block; background: #f0f0f0; padding: 3px 10px; border-radius: 6px; font-size: 12px; }
 </style>
 </head>
 <body>
 
 <h1>OpenUsage Harness Benchmark 報告</h1>
-<p class="sub">模型：claude-sonnet-4-6 &middot; 3 次執行 &middot; 5 個場景 &middot; 全部驗證通過（73/73）</p>
+<p class="sub">模型：claude-sonnet-4-6 &middot; effort：low &middot; 3 次執行 &middot; 5 個場景 &middot; 全部驗證通過（73/73）</p>
 
 <div class="scenario-desc">
   <strong>場景說明：</strong>
@@ -45,17 +53,18 @@ td:first-child { text-align: left; font-weight: 500; }
   S5 全開（CLAUDE.md + 子代理 + 技能文件）
 </div>
 
+<!-- Prompt -->
 <div class="chart-box">
   <div class="chart-title" style="display:flex;align-items:center;justify-content:space-between;">
     <span>給 Claude 的 Prompt</span>
-    <span style="display:flex;gap:4px;">
-      <button onclick="document.getElementById('prompt-en').style.display='block';document.getElementById('prompt-zh').style.display='none';this.style.fontWeight='500';this.nextElementSibling.style.fontWeight='400'" style="font-size:12px;padding:3px 10px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer;font-weight:500">EN</button>
-      <button onclick="document.getElementById('prompt-zh').style.display='block';document.getElementById('prompt-en').style.display='none';this.style.fontWeight='500';this.previousElementSibling.style.fontWeight='400'" style="font-size:12px;padding:3px 10px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer;font-weight:400">中文</button>
+    <span style="display:flex;gap:4px;" id="prompt-btns">
+      <button class="prompt-toggle active" onclick="switchPrompt('en')">EN</button>
+      <button class="prompt-toggle" onclick="switchPrompt('zh')">中文</button>
     </span>
   </div>
-  <div style="display:flex;gap:8px;margin-bottom:10px;font-size:12px;">
-    <span style="background:#f0f0f0;padding:3px 10px;border-radius:6px;">模型：claude-sonnet-4-6</span>
-    <span style="background:#f0f0f0;padding:3px 10px;border-radius:6px;">effort：low</span>
+  <div style="display:flex;gap:8px;margin-bottom:10px;">
+    <span class="tag">模型：claude-sonnet-4-6</span>
+    <span class="tag">effort：low</span>
   </div>
   <pre id="prompt-en" style="background:#f5f5f5;border-radius:8px;padding:14px;font-size:12.5px;line-height:1.6;overflow-x:auto;white-space:pre-wrap;color:#333;">Add a Codex rate limit reset status feature to this openusage repository.
 
@@ -94,6 +103,7 @@ plugins/codex/behavioral.test.js 已經存在。
   </p>
 </div>
 
+<!-- Harness 差異 -->
 <div class="chart-box">
   <div class="chart-title">各場景 Harness 差異</div>
   <table>
@@ -115,6 +125,7 @@ plugins/codex/behavioral.test.js 已經存在。
   </table>
 </div>
 
+<!-- KPI -->
 <div class="metrics">
   <div class="metric">
     <div class="label">最便宜（平均）</div>
@@ -138,17 +149,90 @@ plugins/codex/behavioral.test.js 已經存在。
   </div>
 </div>
 
+<!-- 圖表 1: 各場景加權 token（純 CSS 長條圖） -->
 <div class="chart-box">
   <div class="chart-title">各場景加權 token 消耗</div>
   <div class="legend">
     <span><span class="dot" style="background:#AFA9EC"></span>第 1 次</span>
     <span><span class="dot" style="background:#7F77DD"></span>第 2 次</span>
     <span><span class="dot" style="background:#3C3489"></span>第 3 次</span>
-    <span><span class="dot" style="background:#534AB7"></span>平均</span>
+    <span><span class="dot" style="background:#534AB7;border:2px solid #3C3489"></span>平均</span>
   </div>
-  <div style="position:relative;height:300px"><canvas id="c1"></canvas></div>
+  <!-- max = 3.85M → 100% -->
+  <div class="bar-row"><div class="bar-label">S1 裸機</div><div class="bar-track">
+    <div class="bar-group">
+      <div class="bar-fill" style="width:97%;background:#AFA9EC;font-size:0"></div>
+    </div>
+    <div class="bar-group">
+      <div class="bar-fill" style="width:100%;background:#7F77DD;font-size:0"></div>
+    </div>
+    <div class="bar-group">
+      <div class="bar-fill" style="width:95%;background:#3C3489;font-size:0"></div>
+    </div>
+    <div class="bar-group">
+      <div class="bar-fill" style="width:97%;background:#534AB7;color:#fff">3.75M</div>
+    </div>
+  </div></div>
+  <div class="bar-row"><div class="bar-label">S2 CLAUDE.md</div><div class="bar-track">
+    <div class="bar-group">
+      <div class="bar-fill" style="width:74%;background:#AFA9EC;font-size:0"></div>
+    </div>
+    <div class="bar-group">
+      <div class="bar-fill" style="width:79%;background:#7F77DD;font-size:0"></div>
+    </div>
+    <div class="bar-group">
+      <div class="bar-fill" style="width:43%;background:#3C3489;font-size:0"></div>
+    </div>
+    <div class="bar-group">
+      <div class="bar-fill" style="width:65%;background:#534AB7;color:#fff">2.52M</div>
+    </div>
+  </div></div>
+  <div class="bar-row"><div class="bar-label">S3 子代理</div><div class="bar-track">
+    <div class="bar-group">
+      <div class="bar-fill" style="width:60%;background:#AFA9EC;font-size:0"></div>
+    </div>
+    <div class="bar-group">
+      <div class="bar-fill" style="width:78%;background:#7F77DD;font-size:0"></div>
+    </div>
+    <div class="bar-group">
+      <div class="bar-fill" style="width:69%;background:#3C3489;font-size:0"></div>
+    </div>
+    <div class="bar-group">
+      <div class="bar-fill" style="width:69%;background:#534AB7;color:#fff">2.65M</div>
+    </div>
+  </div></div>
+  <div class="bar-row"><div class="bar-label">S4 技能文件</div><div class="bar-track">
+    <div class="bar-group">
+      <div class="bar-fill" style="width:61%;background:#AFA9EC;font-size:0"></div>
+    </div>
+    <div class="bar-group">
+      <div class="bar-fill" style="width:43%;background:#7F77DD;font-size:0"></div>
+    </div>
+    <div class="bar-group">
+      <div class="bar-fill" style="width:46%;background:#3C3489;font-size:0"></div>
+    </div>
+    <div class="bar-group">
+      <div class="bar-fill" style="width:50%;background:#534AB7;color:#fff">1.93M</div>
+    </div>
+  </div></div>
+  <div class="bar-row"><div class="bar-label">S5 全開</div><div class="bar-track">
+    <div class="bar-group">
+      <div class="bar-fill" style="width:45%;background:#AFA9EC;font-size:0"></div>
+    </div>
+    <div class="bar-group">
+      <div class="bar-fill" style="width:56%;background:#7F77DD;font-size:0"></div>
+    </div>
+    <div class="bar-group">
+      <div class="bar-fill" style="width:46%;background:#3C3489;font-size:0"></div>
+    </div>
+    <div class="bar-group">
+      <div class="bar-fill" style="width:49%;background:#534AB7;color:#fff">1.88M</div>
+    </div>
+  </div></div>
+  <div style="text-align:right;font-size:11px;color:#bbb;margin-top:4px">← 0 &nbsp;&nbsp;&nbsp; 加權 token &nbsp;&nbsp;&nbsp; 4M →</div>
 </div>
 
+<!-- 圖表 2: Token 分類（堆疊長條） -->
 <div class="chart-box">
   <div class="chart-title">Token 分類明細（3 次平均）</div>
   <div class="legend">
@@ -157,31 +241,81 @@ plugins/codex/behavioral.test.js 已經存在。
     <span><span class="dot" style="background:#ED93B1"></span>輸出</span>
     <span><span class="dot" style="background:#B4B2A9"></span>子代理開銷</span>
   </div>
-  <div style="position:relative;height:300px"><canvas id="c2"></canvas></div>
+  <!-- S1: cr=2022511 cw=85828 o=16297 sub=1626714 total=3751350 -->
+  <div class="bar-row"><div class="bar-label">S1 裸機</div><div class="bar-track" style="display:flex">
+    <div class="bar-seg" style="width:54%;background:#5DCAA5"></div>
+    <div class="bar-seg" style="width:2%;background:#85B7EB"></div>
+    <div class="bar-seg" style="width:1%;background:#ED93B1"></div>
+    <div class="bar-seg" style="width:43%;background:#B4B2A9"></div>
+  </div></div>
+  <!-- S2: cr=2262834 cw=74479 o=18275 sub=168785 total=2524373 -->
+  <div class="bar-row"><div class="bar-label">S2 CLAUDE.md</div><div class="bar-track" style="display:flex">
+    <div class="bar-seg" style="width:60%;background:#5DCAA5"></div>
+    <div class="bar-seg" style="width:2%;background:#85B7EB"></div>
+    <div class="bar-seg" style="width:1%;background:#ED93B1"></div>
+    <div class="bar-seg" style="width:5%;background:#B4B2A9"></div>
+  </div></div>
+  <!-- S3: cr=2389567 cw=81124 o=26998 sub=156660 total=2654349 -->
+  <div class="bar-row"><div class="bar-label">S3 子代理</div><div class="bar-track" style="display:flex">
+    <div class="bar-seg" style="width:61%;background:#5DCAA5"></div>
+    <div class="bar-seg" style="width:2%;background:#85B7EB"></div>
+    <div class="bar-seg" style="width:1%;background:#ED93B1"></div>
+    <div class="bar-seg" style="width:4%;background:#B4B2A9"></div>
+  </div></div>
+  <!-- S4: cr=1663879 cw=71519 o=13290 sub=176730 total=1925418 -->
+  <div class="bar-row"><div class="bar-label">S4 技能文件</div><div class="bar-track" style="display:flex">
+    <div class="bar-seg" style="width:44%;background:#5DCAA5"></div>
+    <div class="bar-seg" style="width:2%;background:#85B7EB"></div>
+    <div class="bar-seg" style="width:1%;background:#ED93B1"></div>
+    <div class="bar-seg" style="width:5%;background:#B4B2A9"></div>
+  </div></div>
+  <!-- S5: cr=1462277 cw=70553 o=11332 sub=338258 total=1882420 -->
+  <div class="bar-row"><div class="bar-label">S5 全開</div><div class="bar-track" style="display:flex">
+    <div class="bar-seg" style="width:39%;background:#5DCAA5"></div>
+    <div class="bar-seg" style="width:2%;background:#85B7EB"></div>
+    <div class="bar-seg" style="width:1%;background:#ED93B1"></div>
+    <div class="bar-seg" style="width:9%;background:#B4B2A9"></div>
+  </div></div>
+  <div style="text-align:right;font-size:11px;color:#bbb;margin-top:4px">佔比為相對於 S1 總量的比例</div>
 </div>
 
+<!-- 分類明細表 -->
 <div class="chart-box">
   <div class="chart-title">分類明細表（3 次平均）</div>
   <table>
     <thead>
       <tr><th>場景</th><th>輸入</th><th>輸出</th><th>快取寫入</th><th>快取讀取</th><th>子代理</th><th>加權總計</th><th>vs S1</th></tr>
     </thead>
-    <tbody id="tb"></tbody>
+    <tbody>
+      <tr><td>S1 裸機</td><td>48 <span class="pct">0%</span></td><td>16K <span class="pct">0%</span></td><td>86K <span class="pct">2%</span></td><td>2.02M <span class="pct">54%</span></td><td>1.63M <span class="pct">43%</span></td><td style="font-weight:500">3.75M</td><td>—</td></tr>
+      <tr><td>S2 CLAUDE.md</td><td>391 <span class="pct">0%</span></td><td>18K <span class="pct">1%</span></td><td>74K <span class="pct">3%</span></td><td>2.26M <span class="pct">90%</span></td><td>169K <span class="pct">7%</span></td><td style="font-weight:500">2.52M</td><td><span class="green">-33%</span></td></tr>
+      <tr><td>S3 子代理</td><td>392 <span class="pct">0%</span></td><td>27K <span class="pct">1%</span></td><td>81K <span class="pct">3%</span></td><td>2.39M <span class="pct">90%</span></td><td>157K <span class="pct">6%</span></td><td style="font-weight:500">2.65M</td><td><span class="green">-29%</span></td></tr>
+      <tr><td>S4 技能文件</td><td>548 <span class="pct">0%</span></td><td>13K <span class="pct">1%</span></td><td>72K <span class="pct">4%</span></td><td>1.66M <span class="pct">86%</span></td><td>177K <span class="pct">9%</span></td><td style="font-weight:500">1.93M</td><td><span class="green">-49%</span></td></tr>
+      <tr class="winner"><td>S5 全開</td><td>375 <span class="pct">0%</span></td><td>11K <span class="pct">1%</span></td><td>71K <span class="pct">4%</span></td><td>1.46M <span class="pct">78%</span></td><td>338K <span class="pct">18%</span></td><td style="font-weight:500">1.88M</td><td><span class="green">-50%</span></td></tr>
+    </tbody>
   </table>
 </div>
 
+<!-- 每次執行結果 -->
 <div class="chart-box">
   <div class="chart-title">每次執行結果</div>
   <table>
     <thead><tr><th>場景</th><th>第 1 次</th><th>第 2 次</th><th>第 3 次</th><th>平均</th><th>波動</th></tr></thead>
-    <tbody id="tb2"></tbody>
+    <tbody>
+      <tr><td>S1 裸機</td><td>3.74M</td><td>3.85M</td><td>3.67M</td><td style="font-weight:500">3.75M</td><td>±2%</td></tr>
+      <tr><td>S2 CLAUDE.md</td><td>2.87M</td><td>3.03M</td><td>1.67M</td><td style="font-weight:500">2.52M</td><td>±27%</td></tr>
+      <tr><td>S3 子代理</td><td>2.33M</td><td>2.99M</td><td>2.65M</td><td style="font-weight:500">2.65M</td><td>±12%</td></tr>
+      <tr><td>S4 技能文件</td><td>2.35M</td><td>1.67M</td><td>1.75M</td><td style="font-weight:500">1.93M</td><td>±18%</td></tr>
+      <tr class="winner"><td>S5 全開</td><td>1.73M</td><td>2.16M</td><td>1.77M</td><td style="font-weight:500">1.88M</td><td>±12%</td></tr>
+    </tbody>
   </table>
 </div>
 
+<!-- 驗證結果 -->
 <div class="chart-box">
   <div class="chart-title">驗證結果</div>
   <table>
-    <thead><tr><th>檢查項目</th><th>S1</th><th>S2</th><th>S3</th><th>S4</th><th>S5</th></tr></thead>
+    <thead><tr><th style="text-align:left">檢查項目</th><th>S1</th><th>S2</th><th>S3</th><th>S4</th><th>S5</th></tr></thead>
     <tbody>
       <tr><td>CLAUDE.md 隔離</td><td>✓ 無</td><td>✓ 有</td><td>✓ 有</td><td>✓ 有</td><td>✓ 有</td></tr>
       <tr><td>Skills 隔離</td><td>✓ 無</td><td>✓ 無</td><td>✓ 無</td><td>✓ 有</td><td>✓ 有</td></tr>
@@ -204,50 +338,13 @@ plugins/codex/behavioral.test.js 已經存在。
 </p>
 
 <script>
-const labels = ['S1 裸機','S2 CLAUDE.md','S3 子代理','S4 技能文件','S5 全開'];
-const R = [
-  [{i:59,o:15904,cw:85300,cr:2621425,sub:1012593},{i:68,o:17961,cw:68619,cr:2584853,sub:194499},{i:58,o:15105,cw:60697,cr:2070283,sub:180241},{i:59,o:14331,cw:58799,cr:2121670,sub:159436},{i:1035,o:11737,cw:83398,cr:1259733,sub:370007}],
-  [{i:43,o:16104,cw:82557,cr:1666886,sub:2084446},{i:1060,o:17996,cw:88607,cr:2686062,sub:239896},{i:68,o:35239,cw:94508,cr:2775678,sub:80860},{i:40,o:9643,cw:49944,cr:1240203,sub:370754},{i:45,o:11141,cw:59423,cr:1534451,sub:550917}],
-  [{i:43,o:16884,cw:89628,cr:1779222,sub:1783104},{i:45,o:18869,cw:66212,cr:1517586,sub:71959},{i:1059,o:30650,cw:88168,cr:2322740,sub:208880},{i:1545,o:15895,cw:105813,cr:1629763,sub:0},{i:46,o:11117,cw:68839,cr:1592647,sub:93849}]
-];
-const avg = labels.map((_,si) => {
-  const v = R.map(r=>r[si]);
-  const a = {i:Math.round(v.reduce((s,x)=>s+x.i,0)/3),o:Math.round(v.reduce((s,x)=>s+x.o,0)/3),cw:Math.round(v.reduce((s,x)=>s+x.cw,0)/3),cr:Math.round(v.reduce((s,x)=>s+x.cr,0)/3),sub:Math.round(v.reduce((s,x)=>s+x.sub,0)/3)};
-  a.total=a.i+a.o+a.cw+a.cr+a.sub; return a;
-});
-const weighted = R.map(r=>r.map(v=>v.i+v.o+v.cw+v.cr+v.sub));
-const avgW = weighted[0].map((_,i)=>Math.round((weighted[0][i]+weighted[1][i]+weighted[2][i])/3));
-const fmt = n=>n>=1e6?(n/1e6).toFixed(2)+'M':n>=1e3?Math.round(n/1e3)+'K':n;
-const pct = (n,t)=>t?Math.round(n/t*100)+'%':'0%';
-
-new Chart(document.getElementById('c1'),{type:'bar',data:{labels,datasets:[
-  {label:'第 1 次',data:weighted[0],backgroundColor:'#AFA9EC',borderRadius:3},
-  {label:'第 2 次',data:weighted[1],backgroundColor:'#7F77DD',borderRadius:3},
-  {label:'第 3 次',data:weighted[2],backgroundColor:'#3C3489',borderRadius:3},
-  {label:'平均',data:avgW,backgroundColor:'#534AB7',borderRadius:3,borderWidth:2,borderColor:'#534AB7'},
-]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:v=>(v/1e6).toFixed(1)+'M'},grid:{color:'rgba(0,0,0,0.05)'}},x:{ticks:{autoSkip:false},grid:{display:false}}}}});
-
-new Chart(document.getElementById('c2'),{type:'bar',data:{labels,datasets:[
-  {label:'快取讀取',data:avg.map(a=>a.cr),backgroundColor:'#5DCAA5',borderRadius:2},
-  {label:'快取寫入',data:avg.map(a=>a.cw),backgroundColor:'#85B7EB',borderRadius:2},
-  {label:'輸出',data:avg.map(a=>a.o),backgroundColor:'#ED93B1',borderRadius:2},
-  {label:'子代理',data:avg.map(a=>a.sub),backgroundColor:'#B4B2A9',borderRadius:2},
-]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{stacked:true,grid:{display:false},ticks:{autoSkip:false}},y:{stacked:true,ticks:{callback:v=>(v/1e6).toFixed(1)+'M'},grid:{color:'rgba(0,0,0,0.05)'}}}}});
-
-const s1t=avg[0].total;
-document.getElementById('tb').innerHTML=avg.map((a,i)=>{
-  const delta=i===0?'—':'<span class="green">-'+Math.round((1-a.total/s1t)*100)+'%</span>';
-  const cls=a.total===Math.min(...avg.map(x=>x.total))?'winner':'';
-  return `<tr class="${cls}"><td>${labels[i]}</td><td>${fmt(a.i)}<span class="pct">${pct(a.i,a.total)}</span></td><td>${fmt(a.o)}<span class="pct">${pct(a.o,a.total)}</span></td><td>${fmt(a.cw)}<span class="pct">${pct(a.cw,a.total)}</span></td><td>${fmt(a.cr)}<span class="pct">${pct(a.cr,a.total)}</span></td><td>${fmt(a.sub)}<span class="pct">${pct(a.sub,a.total)}</span></td><td style="font-weight:500">${fmt(a.total)}</td><td>${delta}</td></tr>`;
-}).join('');
-
-document.getElementById('tb2').innerHTML=labels.map((l,i)=>{
-  const w=weighted.map(r=>r[i]);
-  const mn=Math.min(...w),mx=Math.max(...w),av=avgW[i];
-  const range=Math.round((mx-mn)/av*100/2);
-  const cls=av===Math.min(...avgW)?'winner':'';
-  return `<tr class="${cls}"><td>${l}</td><td>${fmt(w[0])}</td><td>${fmt(w[1])}</td><td>${fmt(w[2])}</td><td style="font-weight:500">${fmt(av)}</td><td>±${range}%</td></tr>`;
-}).join('');
+function switchPrompt(lang) {
+  document.getElementById('prompt-en').style.display = lang === 'en' ? 'block' : 'none';
+  document.getElementById('prompt-zh').style.display = lang === 'zh' ? 'block' : 'none';
+  var btns = document.querySelectorAll('.prompt-toggle');
+  btns[0].className = 'prompt-toggle' + (lang === 'en' ? ' active' : '');
+  btns[1].className = 'prompt-toggle' + (lang === 'zh' ? ' active' : '');
+}
 </script>
 </body>
 </html>
