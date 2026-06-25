@@ -37,6 +37,12 @@ td:first-child { text-align: left; font-weight: 500; }
 .prompt-toggle { font-size: 12px; padding: 3px 10px; border: 1px solid #ddd; border-radius: 6px; background: #fff; cursor: pointer; }
 .prompt-toggle.active { font-weight: 500; background: #f0f0f0; }
 .tag { display: inline-block; background: #f0f0f0; padding: 3px 10px; border-radius: 6px; font-size: 12px; }
+.prompt-radio { display: none; }
+.prompt-label { font-size: 12px; padding: 3px 10px; border: 1px solid #ddd; border-radius: 6px; background: #fff; cursor: pointer; display: inline-block; }
+.prompt-radio:checked + .prompt-label { font-weight: 500; background: #f0f0f0; }
+.prompt-wrap #prompt-en, .prompt-wrap #prompt-zh { display: none; }
+.prompt-wrap #prompt-en-radio:checked ~ #prompt-en { display: block; }
+.prompt-wrap #prompt-zh-radio:checked ~ #prompt-zh { display: block; }
 </style>
 </head>
 <body>
@@ -55,16 +61,15 @@ td:first-child { text-align: left; font-weight: 500; }
 
 <!-- Prompt -->
 <div class="chart-box">
-  <div class="chart-title" style="display:flex;align-items:center;justify-content:space-between;">
-    <span>給 Claude 的 Prompt</span>
-    <span style="display:flex;gap:4px;" id="prompt-btns">
-      <button class="prompt-toggle active" onclick="switchPrompt('en')">EN</button>
-      <button class="prompt-toggle" onclick="switchPrompt('zh')">中文</button>
-    </span>
-  </div>
-  <div style="display:flex;gap:8px;margin-bottom:10px;">
+  <div class="chart-title">給 Claude 的 Prompt</div>
+  <div class="prompt-wrap">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
     <span class="tag">模型：claude-sonnet-4-6</span>
     <span class="tag">effort：low</span>
+    <span style="margin-left:auto;display:flex;gap:4px;">
+      <input type="radio" name="prompt-lang" id="prompt-en-radio" class="prompt-radio" checked><label for="prompt-en-radio" class="prompt-label">EN</label>
+      <input type="radio" name="prompt-lang" id="prompt-zh-radio" class="prompt-radio"><label for="prompt-zh-radio" class="prompt-label">中文</label>
+    </span>
   </div>
   <pre id="prompt-en" style="background:#f5f5f5;border-radius:8px;padding:14px;font-size:12.5px;line-height:1.6;overflow-x:auto;white-space:pre-wrap;color:#333;">Add a Codex rate limit reset status feature to this openusage repository.
 
@@ -101,6 +106,7 @@ plugins/codex/behavioral.test.js 已經存在。
   <p style="font-size:12px;color:#999;margin-top:10px;">
     此 prompt 對所有場景完全相同。差異僅在於 harness 設定（CLAUDE.md 內容、可用工具、技能文件）。
   </p>
+  </div>
 </div>
 
 <!-- Harness 差異 -->
@@ -337,14 +343,5 @@ plugins/codex/behavioral.test.js 已經存在。
   資料來源：<code>results/run_20260625_093511.json</code>、<code>run_20260625_095143.json</code>、<code>run_20260625_100737.json</code>。
 </p>
 
-<script>
-function switchPrompt(lang) {
-  document.getElementById('prompt-en').style.display = lang === 'en' ? 'block' : 'none';
-  document.getElementById('prompt-zh').style.display = lang === 'zh' ? 'block' : 'none';
-  var btns = document.querySelectorAll('.prompt-toggle');
-  btns[0].className = 'prompt-toggle' + (lang === 'en' ? ' active' : '');
-  btns[1].className = 'prompt-toggle' + (lang === 'zh' ? ' active' : '');
-}
-</script>
 </body>
 </html>
