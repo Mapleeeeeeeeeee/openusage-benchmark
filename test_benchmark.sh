@@ -35,6 +35,7 @@ assert_eq() {
 assert_file_exists()    { [[ -f "$2" ]] && pass "$1" || fail "$1 — file missing: $2"; }
 assert_file_not_exists(){ [[ ! -f "$2" ]] && pass "$1" || fail "$1 — file should not exist: $2"; }
 assert_dir_exists()     { [[ -d "$2" ]] && pass "$1" || fail "$1 — dir missing: $2"; }
+assert_dir_not_exists() { [[ ! -d "$2" ]] && pass "$1" || fail "$1 — dir should not exist: $2"; }
 assert_contains()       { grep -q "$3" "$2" && pass "$1" || fail "$1 — '$3' not found in $2"; }
 assert_not_contains()   { ! grep -q "$3" "$2" && pass "$1" || fail "$1 — '$3' unexpectedly found in $2"; }
 
@@ -123,6 +124,13 @@ cat > "$DUMMY_REPO/CLAUDE.md" << 'EOF'
 npm test
 EOF
 
+# Simulate repo having AGENTS.md and .claude/skills/ (like the real openusage project)
+touch "$DUMMY_REPO/AGENTS.md"
+mkdir -p "$DUMMY_REPO/.claude/skills/tauri-development"
+touch "$DUMMY_REPO/.claude/skills/tauri-development/SKILL.md"
+git -C "$DUMMY_REPO" add -A
+git -C "$DUMMY_REPO" -c user.email="t@t" -c user.name="t" commit -q -m "add project files"
+
 BASE_CLAUDE_MD="$DUMMY_REPO/CLAUDE.md"
 
 # Simulate Phase 1: clone 5 times
@@ -133,13 +141,28 @@ done
 # Phase 2: use production configure_scenario_dirs (from sourced run_benchmark.sh)
 configure_scenario_dirs "$BASE_CLAUDE_MD" "$TMP" 2>/dev/null
 
-# Assertions
+# CLAUDE.md presence
 assert_file_not_exists "S1 has no CLAUDE.md"         "$TMP/s1/CLAUDE.md"
 assert_file_exists     "S2 has CLAUDE.md"             "$TMP/s2/CLAUDE.md"
 assert_file_exists     "S3 has CLAUDE.md"             "$TMP/s3/CLAUDE.md"
 assert_file_exists     "S4 has CLAUDE.md"             "$TMP/s4/CLAUDE.md"
 assert_file_exists     "S5 has CLAUDE.md"             "$TMP/s5/CLAUDE.md"
 
+# AGENTS.md isolation: absent in S1 (true baseline), present in S2-S5
+assert_file_not_exists "S1 has no AGENTS.md"         "$TMP/s1/AGENTS.md"
+assert_file_exists     "S2 has AGENTS.md"             "$TMP/s2/AGENTS.md"
+assert_file_exists     "S3 has AGENTS.md"             "$TMP/s3/AGENTS.md"
+assert_file_exists     "S4 has AGENTS.md"             "$TMP/s4/AGENTS.md"
+assert_file_exists     "S5 has AGENTS.md"             "$TMP/s5/AGENTS.md"
+
+# Skills isolation: absent in S1-S3, present in S4-S5
+assert_dir_not_exists  "S1 has no .claude/skills"    "$TMP/s1/.claude/skills"
+assert_dir_not_exists  "S2 has no .claude/skills"    "$TMP/s2/.claude/skills"
+assert_dir_not_exists  "S3 has no .claude/skills"    "$TMP/s3/.claude/skills"
+assert_dir_exists      "S4 has .claude/skills/"      "$TMP/s4/.claude/skills"
+assert_dir_exists      "S5 has .claude/skills/"      "$TMP/s5/.claude/skills"
+
+# CLAUDE.md content sections
 assert_not_contains "S2 CLAUDE.md has no subagent section" "$TMP/s2/CLAUDE.md" "subagent\|Agent"
 assert_contains     "S3 CLAUDE.md has subagent section"    "$TMP/s3/CLAUDE.md" "Agent"
 assert_not_contains "S3 CLAUDE.md has no skills section"   "$TMP/s3/CLAUDE.md" "Available Skills"
@@ -148,11 +171,7 @@ assert_not_contains "S4 CLAUDE.md has no subagent section" "$TMP/s4/CLAUDE.md" "
 assert_contains     "S5 CLAUDE.md has subagent section"    "$TMP/s5/CLAUDE.md" "Agent"
 assert_contains     "S5 CLAUDE.md has skills section"      "$TMP/s5/CLAUDE.md" "Available Skills"
 
-assert_dir_exists  "S4 has .claude/commands/"        "$TMP/s4/.claude/commands"
-assert_file_exists "S4 has explore-codex skill"      "$TMP/s4/.claude/commands/explore-codex.md"
-assert_file_exists "S4 has test-codex skill"         "$TMP/s4/.claude/commands/test-codex.md"
-assert_dir_exists  "S5 has .claude/commands/"        "$TMP/s5/.claude/commands"
-
+# Monitoring hook present in all scenarios
 for i in 1 2 3 4 5; do
   assert_file_exists "S$i has monitoring hook settings.json" "$TMP/s$i/.claude/settings.json"
 done

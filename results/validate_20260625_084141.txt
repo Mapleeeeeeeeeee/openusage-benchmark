@@ -1,0 +1,137 @@
+=== Benchmark Validation ===
+Temp dir : /benchmark/tmp-runs/openusage-bm-20260625_084141
+Results  : /benchmark/results/run_20260625_084141.json
+Checking deps...
+
+── S1_baseline ──────────────────────────────────────
+  ✓ CLAUDE.md absent (baseline)
+  ✓ AGENTS.md absent (baseline)
+  ✓ .claude/skills absent (baseline)
+  ✓ total_weighted = 4800639 (scenario ran)
+  ✓ No user subagents (as expected)
+  ✓ No skill reads (as expected)
+  ✓ Feature implemented (rate limit reset code found in plugin.js)
+  ✓ Correct API endpoint
+  ✓ Community link in plugin.json
+  ✓ Line declaration in plugin.json
+  ✓ Caching implemented
+  ✓ Graceful error handling
+  ✓ Both reset/not-reset states handled
+  Running Claude's tests...
+       [31m❯[39m src/App.test.tsx [2m([22m[2m80 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 51683[2mms[22m[39m
+      [31m     [31m×[31m applies theme mode changes to document[39m[33m 5719[2mms[22m[39m
+      [31m     [31m×[31m uses selected provider on detail view and keeps it on home/settings[39m[33m 5422[2mms[22m[39m
+      [22m[39mUpdate check failed: Error: network error
+      [22m[39mUpdate download failed: Error: download failed
+      [22m[39mUpdate install failed: Error: install failed
+  ✗ Claude's tests fail
+  Running behavioral test...
+  ✓ Behavioral test pass (1 assertions)
+
+── S4_skills ──────────────────────────────────────
+  ✓ CLAUDE.md present
+  ✓ AGENTS.md present (referenced by CLAUDE.md)
+  ✓ .claude/skills/ present
+  ✓ total_weighted = 5774077 (scenario ran)
+  ✓ No user subagents (as expected)
+  ~ Skills available but Claude chose not to invoke (valid if skills are off-topic)
+  ✓ Feature implemented (rate limit reset code found in plugin.js)
+  ✓ Correct API endpoint
+  ✓ Community link in plugin.json
+  ✓ Line declaration in plugin.json
+  ✓ Caching implemented
+  ✓ Graceful error handling
+  ✓ Both reset/not-reset states handled
+  Running Claude's tests...
+       [31m❯[39m src/App.test.tsx [2m([22m[2m80 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 53751[2mms[22m[39m
+      [31m     [31m×[31m applies theme mode changes to document[39m[33m 5205[2mms[22m[39m
+      [22m[39mUpdate check failed: Error: network error
+      [22m[39mUpdate download failed: Error: download failed
+      [22m[39mUpdate install failed: Error: install failed
+      [41m[1m FAIL [22m[49m src/App.test.tsx[2m > [22mApp[2m > [22mapplies theme mode changes to document
+  ✗ Claude's tests fail
+  Running behavioral test...
+  ✓ Behavioral test pass (1 assertions)
+
+── S3_subagents ──────────────────────────────────────
+  ✓ CLAUDE.md present
+  ✓ AGENTS.md present (referenced by CLAUDE.md)
+  ✓ .claude/skills absent (not testing skills)
+  ✓ total_weighted = 3453885 (scenario ran)
+  ~ Task tool available but Claude chose not to delegate (valid behavior)
+  ✓ No skill reads (as expected)
+  ✓ Feature implemented (rate limit reset code found in plugin.js)
+  ✓ Correct API endpoint
+  ✓ Community link in plugin.json
+  ✓ Line declaration in plugin.json
+  ✓ Caching implemented
+  ✓ Graceful error handling
+  ✓ Both reset/not-reset states handled
+  Running Claude's tests...
+       [31m❯[39m src/App.test.tsx [2m([22m[2m80 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 53338[2mms[22m[39m
+      [31m     [31m×[31m applies theme mode changes to document[39m[33m 5925[2mms[22m[39m
+      [22m[39mUpdate check failed: Error: network error
+      [22m[39mUpdate download failed: Error: download failed
+      [22m[39mUpdate install failed: Error: install failed
+      [41m[1m FAIL [22m[49m src/App.test.tsx[2m > [22mApp[2m > [22mapplies theme mode changes to document
+  ✗ Claude's tests fail
+  Running behavioral test...
+  ✓ Behavioral test pass (1 assertions)
+
+── S5_full ──────────────────────────────────────
+  ✓ CLAUDE.md present
+  ✓ AGENTS.md present (referenced by CLAUDE.md)
+  ✓ .claude/skills/ present
+  ✓ total_weighted = 5871301 (scenario ran)
+  ~ Task tool available but Claude chose not to delegate (valid behavior)
+  ~ Skills available but Claude chose not to invoke (valid if skills are off-topic)
+  ✓ Feature implemented (rate limit reset code found in plugin.js)
+  ✓ Correct API endpoint
+  ✓ Community link in plugin.json
+  ✓ Line declaration in plugin.json
+  ✓ Caching implemented
+  ✓ Graceful error handling
+  ✓ Both reset/not-reset states handled
+  Running Claude's tests...
+       [31m❯[39m src/App.test.tsx [2m([22m[2m80 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 52587[2mms[22m[39m
+      [31m     [31m×[31m applies theme mode changes to document[39m[33m 8140[2mms[22m[39m
+      [22m[39mUpdate check failed: Error: network error
+      [22m[39mUpdate download failed: Error: download failed
+      [22m[39mUpdate install failed: Error: install failed
+      [41m[1m FAIL [22m[49m src/App.test.tsx[2m > [22mApp[2m > [22mapplies theme mode changes to document
+  ✗ Claude's tests fail
+  Running behavioral test...
+  ✓ Behavioral test pass (1 assertions)
+
+── S2_claude_md ──────────────────────────────────────
+  ✓ CLAUDE.md present
+  ✓ AGENTS.md present (referenced by CLAUDE.md)
+  ✓ .claude/skills absent (not testing skills)
+  ✓ total_weighted = 3582201 (scenario ran)
+  ✓ No user subagents (as expected)
+  ✓ No skill reads (as expected)
+  ✓ Feature implemented (rate limit reset code found in plugin.js)
+  ✓ Correct API endpoint
+  ✓ Community link in plugin.json
+  ✓ Line declaration in plugin.json
+  ✓ Caching implemented
+  ✓ Graceful error handling
+  ✓ Both reset/not-reset states handled
+  Running Claude's tests...
+       [31m❯[39m src/App.test.tsx [2m([22m[2m80 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 52514[2mms[22m[39m
+      [31m     [31m×[31m applies theme mode changes to document[39m[33m 7435[2mms[22m[39m
+      [22m[39mUpdate check failed: Error: network error
+      [22m[39mUpdate download failed: Error: download failed
+      [22m[39mUpdate install failed: Error: install failed
+      [41m[1m FAIL [22m[49m src/App.test.tsx[2m > [22mApp[2m > [22mapplies theme mode changes to document
+  ✗ Claude's tests fail
+  Running behavioral test...
+  ✓ Behavioral test pass (1 assertions)
+
+── Cross-scenario consistency ──────────────────────
+  ✓ All scenarios use same line type: text
+  ✓ All scenarios use consistent API endpoint
+
+────────────────────────────────────────────────
+Summary: 68 passed  5 failed  4 warnings
+Status: INVALID — re-run affected scenarios before drawing conclusions

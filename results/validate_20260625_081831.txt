@@ -1,0 +1,115 @@
+=== Benchmark Validation ===
+Temp dir : /benchmark/tmp-runs/openusage-bm-20260625_081831
+Results  : /benchmark/results/run_20260625_081831.json
+Checking deps...
+
+── S3_subagents ──────────────────────────────────────
+  ✓ CLAUDE.md present
+  ✓ AGENTS.md present (referenced by CLAUDE.md)
+  ✓ .claude/skills absent (not testing skills)
+  ✓ total_weighted = 6194056 (scenario ran)
+  ~ Task tool available but Claude chose not to delegate (valid behavior)
+  ✓ No skill reads (as expected)
+  ✓ Feature implemented (rate limit reset code found in plugin.js)
+  ✓ Correct API endpoint
+  ✓ Community link in plugin.json
+  ✓ Line declaration in plugin.json
+  ✓ Caching implemented
+  ✓ Graceful error handling
+  ✓ Both reset/not-reset states handled
+  Running Claude's tests...
+  ✓ Claude's tests pass
+  Running behavioral test...
+  ✓ Behavioral test pass (1 assertions)
+
+── S2_claude_md ──────────────────────────────────────
+  ✓ CLAUDE.md present
+  ✓ AGENTS.md present (referenced by CLAUDE.md)
+  ✓ .claude/skills absent (not testing skills)
+  ✓ total_weighted = 5111146 (scenario ran)
+  ✓ No user subagents (as expected)
+  ✓ No skill reads (as expected)
+  ✓ Feature implemented (rate limit reset code found in plugin.js)
+  ✓ Correct API endpoint
+  ✓ Community link in plugin.json
+  ✓ Line declaration in plugin.json
+  ✓ Caching implemented
+  ✓ Graceful error handling
+  ✓ Both reset/not-reset states handled
+  Running Claude's tests...
+  ✓ Claude's tests pass
+  Running behavioral test...
+  ✓ Behavioral test pass (1 assertions)
+
+── S4_skills ──────────────────────────────────────
+  ✓ CLAUDE.md present
+  ✓ AGENTS.md present (referenced by CLAUDE.md)
+  ✓ .claude/skills/ present
+  ✓ total_weighted = 4151997 (scenario ran)
+  ✓ No user subagents (as expected)
+  ~ Skills available but Claude chose not to invoke (valid if skills are off-topic)
+  ✓ Feature implemented (rate limit reset code found in plugin.js)
+  ✓ Correct API endpoint
+  ✓ Community link in plugin.json
+  ✓ Line declaration in plugin.json
+  ✓ Caching implemented
+  ✓ Graceful error handling
+  ✓ Both reset/not-reset states handled
+  Running Claude's tests...
+           [33m[2m✓[22m[39m renders message [33m 448[2mms[22m[39m
+       [32m✓[39m src/main.test.tsx [2m([22m[2m1 test[22m[2m)[22m[33m 4591[2mms[22m[39m
+           [33m[2m✓[22m[39m mounts app [33m 4589[2mms[22m[39m
+      
+      [2m Test Files [22m [1m[32m66 passed[39m[22m[90m (66)[39m
+      [2m      Tests [22m [1m[32m1142 passed[39m[22m[90m (1142)[39m
+      [2m   Start at [22m 08:30:38
+      [2m   Duration [22m 183.40s[2m (transform 12.28s, setup 55.60s, import 25.84s, tests 65.09s, environment 323.73s)[22m
+  ✗ Claude's tests fail
+  Running behavioral test...
+  ✓ Behavioral test pass (1 assertions)
+
+── S5_full ──────────────────────────────────────
+  ✓ CLAUDE.md present
+  ✓ AGENTS.md present (referenced by CLAUDE.md)
+  ✓ .claude/skills/ present
+  ✓ total_weighted = 4869066 (scenario ran)
+  ~ Task tool available but Claude chose not to delegate (valid behavior)
+  ~ Skills available but Claude chose not to invoke (valid if skills are off-topic)
+  ✓ Feature implemented (rate limit reset code found in plugin.js)
+  ✓ Correct API endpoint
+  ✓ Community link in plugin.json
+  ✓ Line declaration in plugin.json
+  ✓ Caching implemented
+  ✓ Graceful error handling
+  ✓ Both reset/not-reset states handled
+  Running Claude's tests...
+  ✓ Claude's tests pass
+  Running behavioral test...
+  ✓ Behavioral test pass (1 assertions)
+
+── S1_baseline ──────────────────────────────────────
+  ✓ CLAUDE.md absent (baseline)
+  ✓ AGENTS.md absent (baseline)
+  ✓ .claude/skills absent (baseline)
+  ✓ total_weighted = 3652884 (scenario ran)
+  ✓ No user subagents (as expected)
+  ✓ No skill reads (as expected)
+  ✓ Feature implemented (rate limit reset code found in plugin.js)
+  ✓ Correct API endpoint
+  ✓ Community link in plugin.json
+  ✓ Line declaration in plugin.json
+  ✓ Caching implemented
+  ✓ Graceful error handling
+  ✓ Both reset/not-reset states handled
+  Running Claude's tests...
+  ✓ Claude's tests pass
+  Running behavioral test...
+  ✓ Behavioral test pass (1 assertions)
+
+── Cross-scenario consistency ──────────────────────
+  ✓ All scenarios use same line type: text
+  ✓ All scenarios use consistent API endpoint
+
+────────────────────────────────────────────────
+Summary: 72 passed  1 failed  4 warnings
+Status: INVALID — re-run affected scenarios before drawing conclusions

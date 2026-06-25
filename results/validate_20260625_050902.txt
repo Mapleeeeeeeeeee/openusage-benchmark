@@ -1,0 +1,5 @@
+=== Benchmark Validation ===
+Temp dir : /benchmark/tmp-runs/openusage-bm-20260625_050902
+Results  : /benchmark/results/run_20260625_050902.json
+Installing npm deps...
+cp: cannot stat '/benchmark/tmp-runs/openusage-bm-20260625_050902/s1/node_modules': No such file or directory

@@ -2,9 +2,10 @@
 # openusage harness benchmark
 # Measures token cost across 5 scenarios: CLAUDE.md / subagents / skills
 #
-# Usage: ./run_benchmark.sh [--skip-init] [--e2e]
+# Usage: ./run_benchmark.sh [--skip-init] [--e2e] [--dry-run]
 #   --skip-init  Skip the /init step and reuse existing CLAUDE.md (for re-runs)
 #   --e2e        Run S1 only with Haiku to validate pipeline end-to-end
+#   --dry-run    Mock claude -p with fake output to test pipeline without AI cost
 
 set -euo pipefail
 
@@ -21,9 +22,19 @@ TOOLS_WITH_SUBAGENTS="$TOOLS_BASE,Task"
 FEATURE_PROMPT='Add a Codex rate limit reset status feature to this openusage repository.
 
 The Codex plugin should display whether the API rate limit has been reset today
-using https://hascodexratelimitreset.today/api/status. Include caching to avoid
-excessive API calls, graceful error handling for network failures, and a community
-link for the service in plugin.json. Write comprehensive tests.'
+using https://hascodexratelimitreset.today/api/status.
+
+Requirements:
+- Show a green (#22c55e) positive indicator when rate limit has reset today
+- Show a red (#ef4444) negative indicator when it has not
+- Omit the line entirely on API errors or network failures (do not crash probe)
+- Include caching to avoid excessive API calls
+- Add a community link for the service in plugin.json
+- Write comprehensive tests
+
+A behavioral test file already exists at plugins/codex/behavioral.test.js.
+After implementing, run: bun run test -- --run plugins/codex/
+All plugin tests AND behavioral tests must pass. Fix until zero failures.'
 
 # ── Scenario definitions ─────────────────────────────────────────────────────
 # Arrays indexed 1-5 (index 0 unused)
@@ -43,9 +54,10 @@ appropriate.'
 SKILLS_SECTION='
 ## Available Skills
 
-When implementing features in the Codex plugin, use these project skills:
-- `/explore-codex` — maps the codex plugin architecture and conventions
-- `/test-codex`    — runs the codex plugin test suite and reports results'
+This project includes skills for Tauri development. Use them when working on
+Tauri configuration, Rust commands, IPC patterns, or cross-platform builds:
+- `/tauri-development` — TypeScript/Rust patterns, project structure, state management
+- `/tauri-v2`          — Tauri v2 IPC, capabilities, common errors and prevention'
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -63,11 +75,13 @@ get_project_dir() {
 # Parse args before defining log() so $E2E is available
 SKIP_INIT=false
 E2E=false        # --e2e: run S1 only with haiku to validate pipeline
+DRY_RUN=false    # --dry-run: mock claude -p, test everything else
 
 for arg in "$@"; do
   case "$arg" in
     --skip-init) SKIP_INIT=true ;;
     --e2e)       E2E=true ;;
+    --dry-run)   DRY_RUN=true ;;
     *) echo "ERROR: Unknown flag: $arg" >&2; exit 1 ;;
   esac
 done
@@ -161,57 +175,61 @@ find_parent_session() {
 }
 
 # Configures all 5 scenario directories from a base CLAUDE.md.
-# Uses $SCRIPT_DIR (global) to locate commands files and hook_settings.json.
+# Uses $SCRIPT_DIR (global) to locate hook_settings.json.
+#
+# Isolation rules:
+#   AGENTS.md  — kept only in S2-S5 (CLAUDE.md says "Read AGENTS.md first")
+#   .claude/skills/ — kept only in S4-S5 (skills test scenarios)
 configure_scenario_dirs() {
   local base_claude_md="$1"
   local temp_base="$2"
 
-  # S1 — No CLAUDE.md
-  rm -f "$temp_base/s1/CLAUDE.md"
+  # S1 — true baseline: no CLAUDE.md, no AGENTS.md, no skills
+  rm -f  "$temp_base/s1/CLAUDE.md"
+  rm -f  "$temp_base/s1/AGENTS.md"
+  rm -rf "$temp_base/s1/.claude/skills"
   log "S1: no CLAUDE.md"
 
-  # S2 — CLAUDE.md only (no workflow additions)
+  # S2 — CLAUDE.md + AGENTS.md only (CLAUDE.md references AGENTS.md)
   cp "$base_claude_md" "$temp_base/s2/CLAUDE.md"
+  rm -rf "$temp_base/s2/.claude/skills"
   log "S2: CLAUDE.md only"
 
-  # S3 — CLAUDE.md + subagents workflow section
+  # S3 — CLAUDE.md + AGENTS.md + subagents workflow section
   cp "$base_claude_md" "$temp_base/s3/CLAUDE.md"
   printf '%s\n' "$SUBAGENT_SECTION" >> "$temp_base/s3/CLAUDE.md"
+  rm -rf "$temp_base/s3/.claude/skills"
   log "S3: CLAUDE.md + subagents"
 
-  # S4 — CLAUDE.md + skills (no subagents)
+  # S4 — CLAUDE.md + AGENTS.md + project skills (no subagents)
+  # .claude/skills/ already present from repo clone; SKILLS_SECTION tells Claude about them.
   cp "$base_claude_md" "$temp_base/s4/CLAUDE.md"
   printf '%s\n' "$SKILLS_SECTION" >> "$temp_base/s4/CLAUDE.md"
-  mkdir -p "$temp_base/s4/.claude/commands"
-  cp "$SCRIPT_DIR/commands/explore-codex.md" "$temp_base/s4/.claude/commands/"
-  cp "$SCRIPT_DIR/commands/test-codex.md"    "$temp_base/s4/.claude/commands/"
   log "S4: CLAUDE.md + skills"
 
-  # S5 — CLAUDE.md + subagents + skills
+  # S5 — CLAUDE.md + AGENTS.md + subagents + project skills
   cp "$base_claude_md" "$temp_base/s5/CLAUDE.md"
   printf '%s\n' "$SUBAGENT_SECTION" >> "$temp_base/s5/CLAUDE.md"
   printf '%s\n' "$SKILLS_SECTION"   >> "$temp_base/s5/CLAUDE.md"
-  mkdir -p "$temp_base/s5/.claude/commands"
-  cp "$SCRIPT_DIR/commands/explore-codex.md" "$temp_base/s5/.claude/commands/"
-  cp "$SCRIPT_DIR/commands/test-codex.md"    "$temp_base/s5/.claude/commands/"
   log "S5: CLAUDE.md + subagents + skills"
 
-  # Install monitoring hook in all 5 scenarios.
-  # SubagentStart → logs subagent_start with agent_type and agent_id.
-  # PostToolUse(Skill) → logs skill_used with skill name.
-  # Hook fires only on successful execution, so any entry = confirmed success.
   for i in 1 2 3 4 5; do
+    # Monitoring hook
     mkdir -p "$temp_base/s$i/.claude"
     cp "$SCRIPT_DIR/hook_settings.json" "$temp_base/s$i/.claude/settings.json"
+    # Behavioral test (acceptance criteria Claude must pass)
+    if [[ -d "$temp_base/s$i/plugins/codex" ]]; then
+      cp "$SCRIPT_DIR/behavioral.test.js" "$temp_base/s$i/plugins/codex/behavioral.test.js"
+    fi
   done
-  log "Monitoring hook installed in all scenarios"
+  log "Monitoring hook + behavioral test installed in all scenarios"
 }
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 main() {
   local TIMESTAMP
   TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-  local TEMP_BASE="/tmp/openusage-bm-$TIMESTAMP"
+  local TEMP_BASE="${BENCHMARK_TEMP_BASE:-/tmp}/openusage-bm-$TIMESTAMP"
   local RESULTS_DIR="$SCRIPT_DIR/results"
   local RESULTS_FILE="$RESULTS_DIR/run_$TIMESTAMP.json"
 
@@ -235,7 +253,7 @@ main() {
 
   local BASE_CLAUDE_MD="$TEMP_BASE/base/CLAUDE.md"
 
-  if [[ "$SKIP_INIT" == "true" && -f "$SCRIPT_DIR/cached_claude_md.md" ]]; then
+  if { [[ "$SKIP_INIT" == "true" ]] || [[ "$DRY_RUN" == "true" ]]; } && [[ -f "$SCRIPT_DIR/cached_claude_md.md" ]]; then
     log "Using cached CLAUDE.md (--skip-init)"
     cp "$SCRIPT_DIR/cached_claude_md.md" "$BASE_CLAUDE_MD"
   else
@@ -276,14 +294,94 @@ and coding conventions observed in the source. Write it to CLAUDE.md.' \
   wait
   log "All 5 scenario repos cloned"
 
-  # ── Phase 2: Configure each scenario ───────────────────────────────────────
+  # ── Phase 2: Configure each scenario + install deps ─────────────────────────
   log ""
   log "=== Phase 2: Configuring scenarios ==="
   configure_scenario_dirs "$BASE_CLAUDE_MD" "$TEMP_BASE"
 
+  # Install deps once per scenario so Claude doesn't waste tokens on bun install
+  log "Installing deps in all scenarios..."
+  for i in 1 2 3 4 5; do
+    (cd "$TEMP_BASE/s$i" && bun install --silent 2>/dev/null) &
+  done
+  wait
+  log "Deps installed"
+
   # ── Phase 3: Run each scenario ─────────────────────────────────────────────
   log ""
-  log "=== Phase 3: Running scenarios ==="
+  if [[ "$DRY_RUN" == "true" ]]; then
+    log "=== Phase 3: Running scenarios (DRY RUN — mock output) ==="
+  else
+    log "=== Phase 3: Running scenarios ==="
+  fi
+
+  # Writes fake session JSONL + plugin changes so Phase 4 validate can run.
+  mock_claude_session() {
+    local dir="$1"
+    local scenario_dir="$2"
+    local use_subagents="$3"
+
+    # Simulate feature implementation in plugin.js
+    local plugin_js="$dir/plugins/codex/plugin.js"
+    if [[ -f "$plugin_js" ]]; then
+      cat >> "$plugin_js" << 'MOCK_EOF'
+
+// --- mock: rate limit reset status ---
+const RATE_LIMIT_RESET_STATUS_URL = "https://hascodexratelimitreset.today/api/status";
+function fetchRateLimitResetStatus(ctx) {
+  try {
+    const resp = ctx.util.request({ method: "GET", url: RATE_LIMIT_RESET_STATUS_URL, headers: { Accept: "application/json" }, timeoutMs: 3000 });
+    if (resp.status !== 200) return null;
+    const data = ctx.util.tryParseJson(resp.bodyText);
+    if (!data) return null;
+    return typeof data.reset === "boolean" ? data.reset : null;
+  } catch { return null; }
+}
+MOCK_EOF
+    fi
+
+    # Add community link + line declaration to plugin.json
+    local plugin_json="$dir/plugins/codex/plugin.json"
+    if [[ -f "$plugin_json" ]]; then
+      local tmp_json="${plugin_json}.tmp"
+      jq '.links += [{"label":"Rate limit reset?","url":"https://hascodexratelimitreset.today"}]
+        | .lines += [{"type":"text","label":"Reset today?","scope":"detail"}]' \
+        "$plugin_json" > "$tmp_json" && mv "$tmp_json" "$plugin_json"
+    fi
+
+    # Simulate test file
+    cat > "$dir/plugins/codex/plugin.ratelimitreset.test.js" << 'MOCK_EOF'
+import { describe, it, expect } from "vitest";
+describe("rate limit reset status (mock)", () => {
+  it("placeholder", () => { expect(true).toBe(true); });
+});
+MOCK_EOF
+
+    # Create fake session JSONL in the project dir
+    local project_dir
+    project_dir=$(get_project_dir "$dir")
+    mkdir -p "$project_dir"
+
+    local session_id
+    session_id="mock-$(date +%s)-$$"
+    local session_file="$project_dir/${session_id}.jsonl"
+
+    # Write plausible token usage entries
+    local base_input=12000 base_output=8000 base_cw=60000 base_cr=1500000
+    cat > "$session_file" << MOCK_JSONL
+{"type":"assistant","message":{"usage":{"input_tokens":${base_input},"output_tokens":${base_output},"cache_creation_input_tokens":${base_cw},"cache_read_input_tokens":${base_cr}}}}
+MOCK_JSONL
+
+    # For subagent scenarios, add a child session
+    if [[ "$use_subagents" == "true" ]]; then
+      local child_file="$project_dir/mock-child-${session_id}.jsonl"
+      cat > "$child_file" << MOCK_JSONL
+{"type":"assistant","message":{"usage":{"input_tokens":3000,"output_tokens":2000,"cache_creation_input_tokens":10000,"cache_read_input_tokens":200000}}}
+MOCK_JSONL
+    fi
+
+    echo "$session_file"
+  }
 
   run_scenario() {
     local i="$1"
@@ -293,83 +391,95 @@ and coding conventions observed in the source. Write it to CLAUDE.md.' \
     local allowed_tools="$TOOLS_BASE"
     [[ "$use_subagents" == "true" ]] && allowed_tools="$TOOLS_WITH_SUBAGENTS"
 
-    log ""
-    log "--- $label (tools: $allowed_tools) ---"
+    local log_file="$TEMP_BASE/.log_s${i}.txt"
+    local result_file="$TEMP_BASE/.result_s${i}.json"
 
-    # Marker for finding new session file afterwards
-    touch "$TEMP_BASE/marker_s$i"
+    {
+      log "--- $label (tools: $allowed_tools) ---"
 
-    local start_sec
-    start_sec=$(date +%s)
+      # Marker for finding new session file afterwards
+      touch "$TEMP_BASE/marker_s$i"
 
-    (cd "$dir" && \
-      claude -p "$FEATURE_PROMPT" \
-        --model "$MODEL" \
-        --effort low \
-        --allowedTools "$allowed_tools" \
-        --output-format text \
-      2>/dev/null) || log "WARNING: claude exited non-zero for $label"
+      local start_sec
+      start_sec=$(date +%s)
 
-    local end_sec
-    end_sec=$(date +%s)
-    local duration=$(( end_sec - start_sec ))
+      local session_file
+      if [[ "$DRY_RUN" == "true" ]]; then
+        session_file=$(mock_claude_session "$dir" "$TEMP_BASE/s$i" "$use_subagents")
+        sleep 1
+      else
+        (cd "$dir" && \
+          claude -p "$FEATURE_PROMPT" \
+            --model "$MODEL" \
+            --effort low \
+            --allowedTools "$allowed_tools" \
+            --output-format text \
+          2>/dev/null) || log "WARNING: claude exited non-zero for $label"
 
-    sleep 3  # Allow JSONL flush to disk
+        sleep 3  # Allow JSONL flush to disk
 
-    # Find the new session file (scoped to this scenario's project dir)
-    local session_file
-    session_file=$(find_parent_session "$TEMP_BASE/marker_s$i" "$dir") || true
+        session_file=$(find_parent_session "$TEMP_BASE/marker_s$i" "$dir") || true
+      fi
 
-    local breakdown
-    local total_weighted=0
+      local end_sec
+      end_sec=$(date +%s)
+      local duration=$(( end_sec - start_sec ))
 
-    if [[ -n "$session_file" ]]; then
-      log "Session: $(basename "$session_file" .jsonl)"
-      breakdown=$(extract_session_breakdown "$session_file")
-      total_weighted=$(compute_total_weighted "$dir" "$TEMP_BASE/marker_s$i")
-    else
-      log "WARNING: No session file found for $label"
-      breakdown='{"input":0,"output":0,"cache_write":0,"cache_read":0}'
-    fi
+      local breakdown
+      local total_weighted=0
 
-    # Compute sum of main-session tokens for subagent delta
-    local main_total
-    main_total=$(echo "$breakdown" | jq '.input + .output + .cache_write + .cache_read')
-    local subagent_tokens=$(( total_weighted - main_total ))
-    [[ $subagent_tokens -lt 0 ]] && subagent_tokens=0
+      if [[ -n "$session_file" ]]; then
+        log "Session: $(basename "$session_file" .jsonl)"
+        breakdown=$(extract_session_breakdown "$session_file")
+        total_weighted=$(compute_total_weighted "$dir" "$TEMP_BASE/marker_s$i")
+      else
+        log "WARNING: No session file found for $label"
+        breakdown='{"input":0,"output":0,"cache_write":0,"cache_read":0}'
+      fi
 
-    local result
-    result=$(echo "$breakdown" | jq \
-      --arg lbl      "$label" \
-      --arg claude   "${SCENARIO_CLAUDE[$i]}" \
-      --arg subag    "${SCENARIO_SUBAG[$i]}" \
-      --arg skills   "${SCENARIO_SKILLS[$i]}" \
-      --argjson dur  "$duration" \
-      --argjson tw   "$total_weighted" \
-      --argjson sub_tok "$subagent_tokens" \
-      '{
-        scenario:            $lbl,
-        has_claude_md:       ($claude == "true"),
-        has_subagents:       ($subag  == "true"),
-        has_skills:          ($skills == "true"),
-        input_tokens:        .input,
-        output_tokens:       .output,
-        cache_write_tokens:  .cache_write,
-        cache_read_tokens:   .cache_read,
-        subagent_tokens:     $sub_tok,
-        total_weighted:      $tw,
-        duration_sec:        $dur
-      }')
+      local main_total
+      main_total=$(echo "$breakdown" | jq '.input + .output + .cache_write + .cache_read')
+      local subagent_tokens=$(( total_weighted - main_total ))
+      [[ $subagent_tokens -lt 0 ]] && subagent_tokens=0
 
-    RESULTS+=("$result")
-    log "$label done — weighted: $total_weighted, subagent overhead: $subagent_tokens, time: ${duration}s"
+      echo "$breakdown" | jq \
+        --arg lbl      "$label" \
+        --arg claude   "${SCENARIO_CLAUDE[$i]}" \
+        --arg subag    "${SCENARIO_SUBAG[$i]}" \
+        --arg skills   "${SCENARIO_SKILLS[$i]}" \
+        --argjson dur  "$duration" \
+        --argjson tw   "$total_weighted" \
+        --argjson sub_tok "$subagent_tokens" \
+        '{
+          scenario:            $lbl,
+          has_claude_md:       ($claude == "true"),
+          has_subagents:       ($subag  == "true"),
+          has_skills:          ($skills == "true"),
+          input_tokens:        .input,
+          output_tokens:       .output,
+          cache_write_tokens:  .cache_write,
+          cache_read_tokens:   .cache_read,
+          subagent_tokens:     $sub_tok,
+          total_weighted:      $tw,
+          duration_sec:        $dur
+        }' > "$result_file"
+
+      log "$label done — weighted: $total_weighted, subagent overhead: $subagent_tokens, time: ${duration}s"
+    } > "$log_file" 2>&1
   }
 
   local SCENARIOS_TO_RUN=(1 2 3 4 5)
-  [[ "$E2E" == "true" ]] && SCENARIOS_TO_RUN=(1)
 
+  # Run all scenarios concurrently
   for i in "${SCENARIOS_TO_RUN[@]}"; do
-    run_scenario "$i"
+    run_scenario "$i" &
+  done
+  wait
+
+  # Print logs and collect results in order
+  for i in "${SCENARIOS_TO_RUN[@]}"; do
+    [[ -f "$TEMP_BASE/.log_s${i}.txt" ]] && cat "$TEMP_BASE/.log_s${i}.txt" >&2
+    [[ -f "$TEMP_BASE/.result_s${i}.json" ]] && RESULTS+=("$(cat "$TEMP_BASE/.result_s${i}.json")")
   done
 
   # Write all results at once
@@ -423,6 +533,14 @@ and coding conventions observed in the source. Write it to CLAUDE.md.' \
 
   echo ""
   echo "Temp repos: $TEMP_BASE"
+
+  # ── Phase 4: Validate ────────────────────────────────────────────────────────
+  log ""
+  log "=== Phase 4: Validation ==="
+  local validate_out="$RESULTS_DIR/validate_${TIMESTAMP}.txt"
+  "$SCRIPT_DIR/validate.sh" "$TEMP_BASE" "$RESULTS_FILE" 2>&1 | tee "$validate_out"
+  log "Validation report saved: $validate_out"
+
   echo "Done."
 }
 

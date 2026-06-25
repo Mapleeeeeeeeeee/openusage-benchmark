@@ -1,0 +1,15 @@
+[
+  {
+    "scenario": "S1_baseline",
+    "has_claude_md": false,
+    "has_subagents": false,
+    "has_skills": false,
+    "input_tokens": 114,
+    "output_tokens": 3795,
+    "cache_write_tokens": 177943,
+    "cache_read_tokens": 1427759,
+    "subagent_tokens": 21967564,
+    "total_weighted": 23577175,
+    "duration_sec": 390
+  }
+]

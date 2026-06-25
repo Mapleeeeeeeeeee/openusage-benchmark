@@ -16,8 +16,9 @@ if ! docker volume inspect "$VOLUME" &>/dev/null; then
   exit 1
 fi
 
-# Ensure results dir exists on the host before mounting
+# Ensure host-side output dirs exist before mounting
 mkdir -p "$SCRIPT_DIR/results"
+mkdir -p "$SCRIPT_DIR/tmp-runs"
 
 echo "Starting benchmark in isolated container..."
 echo "(No global CLAUDE.md, no hooks, alwaysThinkingEnabled=false)"
@@ -27,5 +28,7 @@ docker run --rm \
   -v "$VOLUME:/root/.claude" \
   -v "$SCRIPT_DIR/results:/benchmark/results" \
   -v "$SCRIPT_DIR/cached_claude_md.md:/benchmark/cached_claude_md.md" \
+  -v "$SCRIPT_DIR/tmp-runs:/benchmark/tmp-runs" \
+  -e BENCHMARK_TEMP_BASE=/benchmark/tmp-runs \
   "$IMAGE" \
   "$@"

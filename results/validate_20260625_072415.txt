@@ -1,0 +1,147 @@
+=== Benchmark Validation ===
+Temp dir : /benchmark/tmp-runs/openusage-bm-20260625_072415
+Results  : /benchmark/results/run_20260625_072415.json
+Installing deps...
+
+── S4_skills ──────────────────────────────────────
+  ✓ CLAUDE.md present
+  ✓ AGENTS.md present (referenced by CLAUDE.md)
+  ✓ .claude/skills/ present
+  ✓ total_weighted = 4954550 (scenario ran)
+  ✓ No user subagents (as expected)
+  ~ Skills available but Claude chose not to invoke (valid if skills are off-topic)
+  ✓ Feature implemented (rate limit reset code found in plugin.js)
+  ✓ Correct API endpoint
+  ✓ Community link in plugin.json
+  ✓ Line declaration in plugin.json
+  ✓ Caching implemented
+  ✓ Graceful error handling
+  ✓ Both reset/not-reset states handled
+  Running Claude's tests...
+       [32m✓[39m src/components/plugin-error.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 322[2mms[22m[39m
+       [32m✓[39m src/main.test.tsx [2m([22m[2m1 test[22m[2m)[22m[33m 1145[2mms[22m[39m
+           [33m[2m✓[22m[39m mounts app [33m 1141[2mms[22m[39m
+      
+      [2m Test Files [22m [1m[32m66 passed[39m[22m[90m (66)[39m
+      [2m      Tests [22m [1m[32m1142 passed[39m[22m[90m (1142)[39m
+      [2m   Start at [22m 07:29:12
+      [2m   Duration [22m 200.58s[2m (transform 11.00s, setup 63.26s, import 28.28s, tests 79.26s, environment 369.04s)[22m
+  ✗ Claude's tests fail
+  Running behavioral test...
+  ✓ Behavioral test pass (1 assertions)
+
+── S2_claude_md ──────────────────────────────────────
+  ✓ CLAUDE.md present
+  ✓ AGENTS.md present (referenced by CLAUDE.md)
+  ✓ .claude/skills absent (not testing skills)
+  ✓ total_weighted = 1955749 (scenario ran)
+  ✓ No user subagents (as expected)
+  ✓ No skill reads (as expected)
+  ✓ Feature implemented (rate limit reset code found in plugin.js)
+  ✓ Correct API endpoint
+  ✓ Community link in plugin.json
+  ✓ Line declaration in plugin.json
+  ✓ Caching implemented
+  ✓ Graceful error handling
+  ✓ Both reset/not-reset states handled
+  Running Claude's tests...
+      
+      
+      [2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m65 passed[39m[22m[90m (66)[39m
+      [2m      Tests [22m [1m[31m6 failed[39m[22m[2m | [22m[1m[32m1136 passed[39m[22m[90m (1142)[39m
+      [2m   Start at [22m 07:29:12
+      [2m   Duration [22m 200.82s[2m (transform 10.90s, setup 65.04s, import 30.35s, tests 79.48s, environment 360.96s)[22m
+      
+      error: script "test" exited with code 1
+  ✗ Claude's tests fail
+  Running behavioral test...
+  ✓ Behavioral test pass (1 assertions)
+
+── S3_subagents ──────────────────────────────────────
+  ✓ CLAUDE.md present
+  ✓ AGENTS.md present (referenced by CLAUDE.md)
+  ✓ .claude/skills absent (not testing skills)
+  ✓ total_weighted = 6876024 (scenario ran)
+  ~ Task tool available but Claude chose not to delegate (valid behavior)
+  ✓ No skill reads (as expected)
+  ✓ Feature implemented (rate limit reset code found in plugin.js)
+  ✓ Correct API endpoint
+  ✓ Community link in plugin.json
+  ✓ Line declaration in plugin.json
+  ✓ Caching implemented
+  ✓ Graceful error handling
+  ✓ Both reset/not-reset states handled
+  Running Claude's tests...
+           [33m[2m✓[22m[39m renders message [33m 441[2mms[22m[39m
+       [32m✓[39m src/main.test.tsx [2m([22m[2m1 test[22m[2m)[22m[33m 1517[2mms[22m[39m
+           [33m[2m✓[22m[39m mounts app [33m 1516[2mms[22m[39m
+      
+      [2m Test Files [22m [1m[32m66 passed[39m[22m[90m (66)[39m
+      [2m      Tests [22m [1m[32m1142 passed[39m[22m[90m (1142)[39m
+      [2m   Start at [22m 07:29:13
+      [2m   Duration [22m 201.20s[2m (transform 10.75s, setup 63.52s, import 30.56s, tests 83.64s, environment 364.32s)[22m
+  ✗ Claude's tests fail
+  Running behavioral test...
+  ✓ Behavioral test pass (1 assertions)
+
+── S1_baseline ──────────────────────────────────────
+  ✓ CLAUDE.md absent (baseline)
+  ✓ AGENTS.md absent (baseline)
+  ✓ .claude/skills absent (baseline)
+  ✓ total_weighted = 2228824 (scenario ran)
+  ✓ No user subagents (as expected)
+  ✓ No skill reads (as expected)
+  ✓ Feature implemented (rate limit reset code found in plugin.js)
+  ✓ Correct API endpoint
+  ✓ Community link in plugin.json
+  ✓ Line declaration in plugin.json
+  ✓ Caching implemented
+  ✓ Graceful error handling
+  ✓ Both reset/not-reset states handled
+  Running Claude's tests...
+      
+      
+      [2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m65 passed[39m[22m[90m (66)[39m
+      [2m      Tests [22m [1m[31m6 failed[39m[22m[2m | [22m[1m[32m1136 passed[39m[22m[90m (1142)[39m
+      [2m   Start at [22m 07:29:12
+      [2m   Duration [22m 201.37s[2m (transform 12.61s, setup 62.70s, import 30.75s, tests 80.99s, environment 364.32s)[22m
+      
+      error: script "test" exited with code 1
+  ✗ Claude's tests fail
+  Running behavioral test...
+  ✓ Behavioral test pass (1 assertions)
+
+── S5_full ──────────────────────────────────────
+  ✓ CLAUDE.md present
+  ✓ AGENTS.md present (referenced by CLAUDE.md)
+  ✓ .claude/skills/ present
+  ✓ total_weighted = 5279799 (scenario ran)
+  ~ Task tool available but Claude chose not to delegate (valid behavior)
+  ~ Skills available but Claude chose not to invoke (valid if skills are off-topic)
+  ✓ Feature implemented (rate limit reset code found in plugin.js)
+  ✓ Correct API endpoint
+  ✓ Community link in plugin.json
+  ✓ Line declaration in plugin.json
+  ✓ Caching implemented
+  ✓ Graceful error handling
+  ✓ Both reset/not-reset states handled
+  Running Claude's tests...
+       [32m✓[39m src/components/plugin-error.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 161[2mms[22m[39m
+       [32m✓[39m src/main.test.tsx [2m([22m[2m1 test[22m[2m)[22m[33m 1403[2mms[22m[39m
+           [33m[2m✓[22m[39m mounts app [33m 1399[2mms[22m[39m
+      
+      [2m Test Files [22m [1m[32m66 passed[39m[22m[90m (66)[39m
+      [2m      Tests [22m [1m[32m1142 passed[39m[22m[90m (1142)[39m
+      [2m   Start at [22m 07:29:12
+      [2m   Duration [22m 202.79s[2m (transform 12.48s, setup 63.08s, import 32.88s, tests 82.48s, environment 369.32s)[22m
+  ✗ Claude's tests fail
+  Running behavioral test...
+  ✓ Behavioral test pass (1 assertions)
+
+── Cross-scenario consistency ──────────────────────
+  ✓ All scenarios use same line type: text
+  ✓ All scenarios use consistent API endpoint
+
+────────────────────────────────────────────────
+Summary: 68 passed  5 failed  4 warnings
+Status: INVALID — re-run affected scenarios before drawing conclusions
