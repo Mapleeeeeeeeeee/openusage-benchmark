@@ -29,6 +29,37 @@ td:first-child { text-align: left; font-weight: 500; }
 .winner td { background: #f0fdf4; }
 .note { font-size: 12px; color: #999; margin-top: 16px; line-height: 1.6; }
 .scenario-desc { font-size: 13px; color: #666; margin-bottom: 20px; line-height: 1.7; }
+.section-divider { border: none; border-top: 2px solid #e5e5e5; margin: 32px 0; }
+.tl-controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+.tl-controls label { font-size: 12px; color: #666; }
+.tl-controls select { font-size: 13px; padding: 4px 8px; border: 1px solid #ddd; border-radius: 6px; background: #fff; }
+.tl-kpi { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 16px; }
+.tl-kpi .metric { padding: 10px; text-align: center; }
+.tl-kpi .metric .value { font-size: 18px; }
+.tl-scroll { max-height: 500px; overflow-y: auto; border: 1px solid #e5e5e5; border-radius: 8px; }
+.tl-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.tl-table th { text-align: right; font-weight: 500; padding: 6px 8px; border-bottom: 2px solid #e5e5e5; color: #888; font-size: 11px; position: sticky; top: 0; background: #fff; z-index: 1; }
+.tl-table th:first-child, .tl-table th:nth-child(2) { text-align: left; }
+.tl-table td { padding: 5px 8px; border-bottom: 1px solid #f0f0f0; text-align: right; font-variant-numeric: tabular-nums; }
+.tl-table td:first-child { text-align: center; color: #aaa; width: 30px; }
+.tl-table td:nth-child(2) { text-align: left; }
+.tl-table td:last-child { text-align: left; color: #888; font-size: 11px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tool-tag { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 500; margin-right: 2px; cursor: default; position: relative; }
+.tool-tag[title]:hover::after { content: attr(title); position: absolute; left: 0; top: 100%; background: #333; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 400; white-space: pre; max-width: 400px; z-index: 10; pointer-events: none; }
+.tool-Bash { background: #e8f5e9; color: #2e7d32; }
+.tool-Read { background: #e3f2fd; color: #1565c0; }
+.tool-Edit { background: #fff3e0; color: #e65100; }
+.tool-Write { background: #fce4ec; color: #c62828; }
+.tool-Agent { background: #f3e5f5; color: #7b1fa2; }
+.tool-Grep { background: #e0f2f1; color: #00695c; }
+.tool-Glob { background: #f1f8e9; color: #558b2f; }
+.tool-default { background: #f5f5f5; color: #616161; }
+.parallel-badge { background: #fff9c4; color: #f57f17; font-size: 10px; padding: 1px 4px; border-radius: 3px; margin-left: 4px; }
+.delta-pos { color: #e53935; font-size: 10px; }
+.delta-neg { color: #43a047; font-size: 10px; }
+.info-tip { position: relative; cursor: help; color: #aaa; }
+.info-tip .info-tip-text { display: none; position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 8px 12px; border-radius: 6px; font-size: 11px; line-height: 1.5; white-space: nowrap; z-index: 20; pointer-events: none; }
+.info-tip:hover .info-tip-text { display: block; }
 </style>
 </head>
 <body>
@@ -203,6 +234,63 @@ plugins/codex/behavioral.test.js 已經存在。
   資料來源：<code>results/run_20260625_093511.json</code>、<code>run_20260625_095143.json</code>、<code>run_20260625_100737.json</code>。
 </p>
 
+<hr class="section-divider">
+
+<h1>Per-API-Request Timeline</h1>
+<p class="sub">每個 API request 的 tool call、token 消耗、cache 變化 — 3 次 run 同時比較</p>
+
+<div class="tl-controls">
+  <label>Scenario:</label>
+  <select id="sel-scenario">
+    <option value="s1">S1 裸機</option>
+    <option value="s2">S2 CLAUDE.md</option>
+    <option value="s3">S3 子代理</option>
+    <option value="s4">S4 技能文件</option>
+    <option value="s5">S5 全開</option>
+  </select>
+</div>
+
+<!-- Single comparison table -->
+<div class="chart-box">
+  <div class="chart-title">3 次 Run 對比</div>
+  <table>
+    <thead><tr><th style="text-align:left">指標</th><th>Run 1</th><th>Run 2</th><th>Run 3</th></tr></thead>
+    <tbody id="tl-compare"></tbody>
+  </table>
+</div>
+
+<!-- Cumulative weighted total -->
+<div class="chart-box">
+  <div class="chart-title">累計加權 Token 消耗</div>
+  <div style="position:relative;height:320px"><canvas id="tl-cumulative"></canvas></div>
+</div>
+
+<!-- Per-turn output (new cost per step) -->
+<div class="chart-box">
+  <div class="chart-title" style="display:flex;align-items:center;justify-content:space-between">
+    <span>每步成本</span>
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="font-size:11px;display:flex;align-items:center;gap:4px;cursor:pointer;color:#666"><input type="checkbox" id="tl-weighted" checked style="cursor:pointer"> 含 Cache <span class="info-tip">ⓘ<span class="info-tip-text">✓ 勾選：完整加權成本<br>（input + output + cache read + cache create）<br><br>✗ 取消：僅 output tokens<br>（Claude 實際生成的內容量）</span></span></label>
+      <div style="display:flex;gap:4px" id="tl-run-tabs"></div>
+    </div>
+  </div>
+  <div style="position:relative;height:260px"><canvas id="tl-output"></canvas></div>
+</div>
+
+<!-- Detail table -->
+<div class="chart-box">
+  <div class="chart-title" style="display:flex;align-items:center;justify-content:space-between">
+    <span>逐 Request 明細</span>
+    <div style="display:flex;gap:4px" id="tl-detail-tabs"></div>
+  </div>
+  <div class="tl-scroll">
+    <table class="tl-table">
+      <thead><tr><th>#</th><th>Tool</th><th>Detail</th><th>Output</th><th>Cache R</th><th>Cache W</th><th>描述</th></tr></thead>
+      <tbody id="tl-body"></tbody>
+    </table>
+  </div>
+</div>
+
 <script>
 const labels = ['S1 裸機','S2 CLAUDE.md','S3 子代理','S4 技能文件','S5 全開'];
 const R = [
@@ -248,6 +336,211 @@ document.getElementById('tb2').innerHTML=labels.map((l,i)=>{
   const cls=av===Math.min(...avgW)?'winner':'';
   return `<tr class="${cls}"><td>${l}</td><td>${fmt(w[0])}</td><td>${fmt(w[1])}</td><td>${fmt(w[2])}</td><td style="font-weight:500">${fmt(av)}</td><td>±${range}%</td></tr>`;
 }).join('');
+
+// ── Timeline ──
+const RUNS = [{id:'093511',label:'Run 1',color:'#AFA9EC',line:'#7F77DD'},{id:'095143',label:'Run 2',color:'#7F77DD',line:'#3C3489'},{id:'100737',label:'Run 3',color:'#3C3489',line:'#1a1145'}];
+const tlCache = {};
+let tlCumChart = null, tlOutChart = null, activeTab = 0, _allData = [];
+
+async function tlLoad(run, sc) {
+  const k = `run${run}_${sc}`;
+  if (tlCache[k]) return tlCache[k];
+  const r = await fetch(`timeline/${k}.json`);
+  if (!r.ok) return [];
+  tlCache[k] = await r.json();
+  return tlCache[k];
+}
+
+function tlStats(data) {
+  const o = data.reduce((s,t) => s+t.usage.output, 0);
+  const cr = data.reduce((s,t) => s+t.usage.cache_read, 0);
+  const cc = data.reduce((s,t) => s+t.usage.cache_create, 0);
+  return { turns: data.length, output: o, cacheRead: cr, cacheCreate: cc, weighted: data.reduce((s,t) => s+t.usage.input+t.usage.output+t.usage.cache_read+t.usage.cache_create, 0) };
+}
+
+function tabBtn(label, idx, color) {
+  const active = idx === activeTab;
+  return `<button onclick="tlSelectRun(${idx})" style="font-size:11px;padding:3px 10px;border:1px solid ${active?color:'#ddd'};border-radius:6px;cursor:pointer;background:${active?color:'#fff'};color:${active?'#fff':'#666'};font-weight:${active?'500':'400'}">${label}</button>`;
+}
+
+function renderTabs(containerId) {
+  document.getElementById(containerId).innerHTML = RUNS.map((r,i) => tabBtn(r.label, i, r.line)).join('');
+}
+
+// ── Comparison table ──
+function tlRenderCompare(allData) {
+  const stats = allData.map(tlStats);
+  const rows = [
+    ['API Requests', ...stats.map(s => `<strong>${s.turns}</strong>`)],
+    ['Output Tokens', ...stats.map(s => fmt(s.output))],
+    ['Cache Read', ...stats.map(s => fmt(s.cacheRead))],
+    ['Cache Create', ...stats.map(s => fmt(s.cacheCreate))],
+    ['Weighted Total', ...stats.map(s => `<strong>${fmt(s.weighted)}</strong>`)],
+  ];
+  const minW = Math.min(...stats.map(s => s.weighted));
+  document.getElementById('tl-compare').innerHTML = rows.map(r =>
+    `<tr><td>${r[0]}</td>${r.slice(1).map((v,i) => {
+      const isWinner = r[0] === 'Weighted Total' && stats[i].weighted === minW;
+      return `<td style="${isWinner ? 'background:#f0fdf4;font-weight:500' : ''}">${v}</td>`;
+    }).join('')}</tr>`
+  ).join('');
+}
+
+// ── Cumulative weighted ──
+function tlRenderCumulative(allData) {
+  const ctx = document.getElementById('tl-cumulative').getContext('2d');
+  if (tlCumChart) tlCumChart.destroy();
+  const maxLen = Math.max(...allData.map(d => d.length));
+  tlCumChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: Array.from({length: maxLen}, (_,i) => i+1),
+      datasets: allData.map((data, ri) => {
+        let sum = 0;
+        const cum = data.map(t => { sum += t.usage.input + t.usage.output + t.usage.cache_read + t.usage.cache_create; return sum; });
+        return {
+          label: `${RUNS[ri].label} (${data.length} reqs → ${fmt(sum)})`,
+          data: cum, borderColor: RUNS[ri].line, backgroundColor: RUNS[ri].color + '22',
+          fill: false, tension: 0.3, pointRadius: 3, pointHoverRadius: 6, borderWidth: 2.5,
+        };
+      })
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        tooltip: { callbacks: {
+          afterTitle: items => items.map(item => {
+            const d = allData[item.datasetIndex]?.[item.dataIndex];
+            if (!d) return '';
+            const tools = d.tools.length ? d.tools.map(t => t.name === 'Agent' ? t.detail || 'Agent' : t.detail || t.name).join(' + ') : 'text';
+            return `${RUNS[item.datasetIndex].label}: ${tools}`;
+          }).join('\n'),
+          label: item => `${item.dataset.label.split(' (')[0]}: ${fmt(item.raw)}`
+        }},
+        legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+        annotation: undefined
+      },
+      scales: {
+        x: { title: { display: true, text: 'API Request #', font: { size: 11 } } },
+        y: { title: { display: true, text: '累計加權 Token', font: { size: 11 } }, ticks: { callback: v => fmt(v) } }
+      }
+    }
+  });
+}
+
+// ── Per-turn weighted cost bar ──
+const TOOL_COLORS = { Agent:'#d1c4e9', Bash:'#c8e6c9', Edit:'#ffe0b2', Write:'#ffe0b2', Read:'#bbdefb', Grep:'#b2dfdb', Glob:'#dcedc8' };
+function turnColor(t) {
+  for (const name of ['Agent','Bash','Edit','Write','Read','Grep','Glob'])
+    if (t.tools.some(tl => tl.name === name)) return TOOL_COLORS[name];
+  return '#e0e0e0';
+}
+
+function turnValue(t, weighted) {
+  return weighted
+    ? t.usage.input + t.usage.output + t.usage.cache_read + t.usage.cache_create
+    : t.usage.output;
+}
+
+function tlRenderOutput(data, ri) {
+  const ctx = document.getElementById('tl-output').getContext('2d');
+  if (tlOutChart) tlOutChart.destroy();
+  const w = document.getElementById('tl-weighted').checked;
+  tlOutChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: data.map((_,i) => i+1),
+      datasets: [{
+        label: w ? 'Weighted Cost' : 'Output Tokens',
+        data: data.map(t => turnValue(t, w)),
+        backgroundColor: data.map(turnColor),
+        borderRadius: 2,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        tooltip: { callbacks: {
+          title: items => {
+            const d = data[items[0].dataIndex];
+            const tools = d.tools.length ? d.tools.map(t => t.detail || t.name).join(' + ') : 'text';
+            return `#${items[0].label}  ${tools}`;
+          },
+          afterBody: items => {
+            const d = data[items[0].dataIndex];
+            return [
+              `  Output:       ${fmt(d.usage.output)}`,
+              `  Cache Read:   ${fmt(d.usage.cache_read)}`,
+              `  Cache Create: ${fmt(d.usage.cache_create)}`,
+              `  Input:        ${fmt(d.usage.input)}`,
+            ];
+          },
+          label: item => `${w ? 'Total' : 'Output'}: ${fmt(item.raw)}`
+        }},
+        legend: { display: false }
+      },
+      scales: {
+        x: { title: { display: true, text: 'API Request #', font: { size: 11 } } },
+        y: { title: { display: true, text: w ? 'Weighted Tokens' : 'Output Tokens', font: { size: 11 } }, ticks: { callback: v => fmt(v) } }
+      }
+    }
+  });
+}
+
+// ── Detail table ──
+function toolDetail(t) {
+  if (t.name === 'Agent' && t.detail) {
+    const parts = t.detail.split(': ');
+    return `<span style="color:#7b1fa2;font-weight:500">${parts[0]}</span> ${parts.slice(1).join(': ')}`;
+  }
+  return t.detail || '';
+}
+
+function tlRenderTable(data) {
+  document.getElementById('tl-body').innerHTML = data.map((t,i) => {
+    const tools = t.tools.length ? t.tools.map(tl => {
+      const cls = ['Bash','Read','Edit','Write','Agent','Grep','Glob'].includes(tl.name) ? `tool-${tl.name}` : 'tool-default';
+      return `<span class="tool-tag ${cls}">${tl.name}</span>`;
+    }).join('') + (t.tools.length > 1 ? '<span class="parallel-badge">×' + t.tools.length + '</span>' : '') : '<span style="color:#bbb">text</span>';
+    const detail = t.tools.map(toolDetail).filter(Boolean).join('<br>');
+    const desc = (t.text||'').replace(/</g,'&lt;');
+    return `<tr>
+      <td>${i+1}</td>
+      <td>${tools}</td>
+      <td style="font-size:11px;text-align:left;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${detail}</td>
+      <td>${fmt(t.usage.output)}</td>
+      <td>${fmt(t.usage.cache_read)}</td>
+      <td>${fmt(t.usage.cache_create)}</td>
+      <td title="${desc}">${desc}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Wiring ──
+function tlSelectRun(i) {
+  activeTab = i;
+  renderTabs('tl-run-tabs');
+  renderTabs('tl-detail-tabs');
+  tlRenderOutput(_allData[i], i);
+  tlRenderTable(_allData[i]);
+}
+
+async function tlUpdate() {
+  const sc = document.getElementById('sel-scenario').value;
+  _allData = await Promise.all(RUNS.map(r => tlLoad(r.id, sc)));
+  tlRenderCompare(_allData);
+  tlRenderCumulative(_allData);
+  renderTabs('tl-run-tabs');
+  renderTabs('tl-detail-tabs');
+  tlRenderOutput(_allData[activeTab], activeTab);
+  tlRenderTable(_allData[activeTab]);
+}
+
+document.getElementById('sel-scenario').addEventListener('change', () => { activeTab = 0; tlUpdate(); });
+document.getElementById('tl-weighted').addEventListener('change', () => tlRenderOutput(_allData[activeTab], activeTab));
+tlUpdate();
 </script>
 </body>
 </html>

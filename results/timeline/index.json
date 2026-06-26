@@ -1,0 +1,46 @@
+{
+  "runs": [
+    {
+      "id": "093511",
+      "label": "Run 1 (Sonnet)",
+      "model": "claude-sonnet-4-6"
+    },
+    {
+      "id": "095143",
+      "label": "Run 2 (Sonnet)",
+      "model": "claude-sonnet-4-6"
+    },
+    {
+      "id": "100737",
+      "label": "Run 3 (Sonnet)",
+      "model": "claude-sonnet-4-6"
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "s1",
+      "label": "S1 裸機",
+      "desc": "無 CLAUDE.md / 無 skills"
+    },
+    {
+      "id": "s2",
+      "label": "S2 CLAUDE.md",
+      "desc": "有 CLAUDE.md"
+    },
+    {
+      "id": "s3",
+      "label": "S3 子代理",
+      "desc": "CLAUDE.md + Task tool"
+    },
+    {
+      "id": "s4",
+      "label": "S4 技能文件",
+      "desc": "CLAUDE.md + Tauri skills"
+    },
+    {
+      "id": "s5",
+      "label": "S5 全開",
+      "desc": "CLAUDE.md + Task + skills"
+    }
+  ]
+}
